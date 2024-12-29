@@ -74,7 +74,7 @@ object BitBuffer {
       require(Integer.MAX_VALUE - size >= bb.size, "Maximum length reached")
       var i: Int = 0
       while (i < bb.size) {
-        data.update(bitLength, bb(i));
+        data.update(bitLength, bb(i))
         i = i + 1
         bitLength = bitLength + 1
       }

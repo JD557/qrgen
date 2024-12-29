@@ -1,4 +1,4 @@
-package eu.joaocosta.qrgen;
+package eu.joaocosta.qrgen
 
 object ReedSolomon {
   // Returns the product of the two given field elements modulo GF(2^8/0x11D). The arguments and result
@@ -34,12 +34,11 @@ object ReedSolomon {
   // Returns a Reed-Solomon ECC generator polynomial for the given degree. This could be
   // implemented as a lookup table over all possible parameter values, instead of as an algorithm.
   def reedSolomonComputeDivisor(degree: Int): Array[Byte] = {
-    if (degree < 1 || degree > 255)
-      throw new IllegalArgumentException("Degree out of range");
+    require(degree >= 1 && degree <= 255, "Degree out of range")
     // Polynomial coefficients are stored from highest to lowest power, excluding the leading term which is always 1.
     // For example the polynomial x^3 + 255x^2 + 8x + 93 is stored as the uint8 array {255, 8, 93}.
-    val result = Array.ofDim[Byte](degree);
-    result(degree - 1) = 1; // Start off with the monomial x^0
+    val result = Array.ofDim[Byte](degree)
+    result(degree - 1) = 1 // Start off with the monomial x^0
 
     // Compute the product polynomial (x - r^0) * (x - r^1) * (x - r^2) * ... * (x - r^{degree-1}),
     // and drop the highest monomial term which is always 1x^degree.
@@ -53,6 +52,6 @@ object ReedSolomon {
       }
       root = reedSolomonMultiply(root, 0x02)
     }
-    return result
+    result
   }
 }

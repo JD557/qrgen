@@ -1,4 +1,4 @@
-package eu.joaocosta.qrgen;
+package eu.joaocosta.qrgen
 
 import java.util.Arrays
 import eu.joaocosta.qrgen.Helpers.*
@@ -74,17 +74,17 @@ final class QrCode(val version: Int, val errorCorrectionLevel: Ecc, dataCodeword
     * at that location is dark, or {@code false} (light) otherwise
     */
   def getModule(x: Int, y: Int): Boolean = {
-    0 <= x && x < size && 0 <= y && y < size && modules(y)(x);
+    0 <= x && x < size && 0 <= y && y < size && modules(y)(x)
   }
 }
 
 object QrCode {
 
   /** The minimum version number  (1) supported in the QR Code Model 2 standard. */
-  val MIN_VERSION: Int = 1;
+  val MIN_VERSION: Int = 1
 
   /** The maximum version number (40) supported in the QR Code Model 2 standard. */
-  val MAX_VERSION: Int = 40;
+  val MAX_VERSION: Int = 40
 
   // Returns the number of data bits that can be stored in a QR Code of the given version number, after
   // all function modules are excluded. This includes remainder bits, so it might not be a multiple of 8.
@@ -210,7 +210,7 @@ object QrCode {
       else if (version >= maxVersion) { // All versions in the range could not fit the given data
         if (dataUsedBits != -1)
           throw new DataTooLongException(s"Data length = $dataUsedBits bits, Max capacity = $dataCapacityBits bits")
-        else throw new DataTooLongException("Segment too long");
+        else throw new DataTooLongException("Segment too long")
       } else version = version + 1
     }
     assert(dataUsedBits != -1)
@@ -222,7 +222,7 @@ object QrCode {
     }
 
     // Concatenate all segments to create the data bit string
-    val bb = new BitBuffer.Mutable();
+    val bb = new BitBuffer.Mutable()
     segs.foreach { seg =>
       bb.appendBits(seg.mode.modeBits, 4)
       bb.appendBits(seg.numChars, seg.mode.numCharCountBits(version))

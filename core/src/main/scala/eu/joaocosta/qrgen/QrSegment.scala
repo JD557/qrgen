@@ -1,7 +1,7 @@
-package eu.joaocosta.qrgen;
+package eu.joaocosta.qrgen
 
-import java.nio.charset.StandardCharsets;
-import java.util.regex.Pattern;
+import java.nio.charset.StandardCharsets
+import java.util.regex.Pattern
 
 /** A segment of character/binary/control data in a QR Code symbol.
   * Instances of this class are immutable.
@@ -23,11 +23,11 @@ object QrSegment {
   private val NUMERIC_REGEX: Pattern = Pattern.compile("[0-9]*")
 
   // Describes precisely all strings that are encodable in alphanumeric mode.
-  private val ALPHANUMERIC_REGEX: Pattern = Pattern.compile("[A-Z0-9 $%*+./:-]*");
+  private val ALPHANUMERIC_REGEX: Pattern = Pattern.compile("[A-Z0-9 $%*+./:-]*")
 
   // The set of all legal characters in alphanumeric mode, where
   // each character value maps to the index in the string.
-  private val ALPHANUMERIC_CHARSET: String = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:";
+  private val ALPHANUMERIC_CHARSET: String = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:"
 
   private def isNumeric(text: CharSequence): Boolean = {
     NUMERIC_REGEX.matcher(text).matches()
@@ -89,7 +89,7 @@ object QrSegment {
     require(isAlphanumeric(text), "String contains unencodable characters in alphanumeric mode")
 
     val bb = new BitBuffer.Mutable()
-    var i             = 0;
+    var i  = 0
     while (i <= text.length() - 2) { // Process groups of 2
       var temp: Int = ALPHANUMERIC_CHARSET.indexOf(text.charAt(i)) * 45
       temp += ALPHANUMERIC_CHARSET.indexOf(text.charAt(i + 1))

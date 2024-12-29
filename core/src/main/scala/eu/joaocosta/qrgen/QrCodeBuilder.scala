@@ -1,4 +1,4 @@
-package eu.joaocosta.qrgen;
+package eu.joaocosta.qrgen
 
 import java.util.Arrays
 import eu.joaocosta.qrgen.Helpers.*
@@ -55,6 +55,7 @@ final class QrCodeBuilder(val size: Int) {
       y <- (0 until size)
       x <- (0 until size)
       isFunction = getFunctionModule(x, y)
+      if (!isFunction)
     } {
       val invert = mask match {
         case 0 => (x + y)         % 2 == 0
@@ -67,7 +68,7 @@ final class QrCodeBuilder(val size: Int) {
         case 7 => ((x + y)        % 2 + x * y % 3) % 2 == 0
         case _ => throw new IllegalArgumentException("Mask value out of range")
       }
-      updateModule(x, y, _ ^ (invert & !isFunction))
+      updateModule(x, y, _ ^ invert)
     }
   }
 
@@ -111,46 +112,32 @@ final class QrCodeBuilder(val size: Int) {
   def getPenaltyScore(): Int = {
     var result: Int = 0
 
+    def processRun(get: (Int, Int) => Boolean): Unit =
+      (0 until size).foreach { outer =>
+        var runColor: Boolean      = false
+        var run: Int              = 0
+        val runHistory: Array[Int] = Array.ofDim[Int](7)
+        (0 until size).foreach { inner =>
+          if (get(inner, outer) == runColor) {
+            run = run + 1
+            if (run == 5) result = result + QrCodeBuilder.PENALTY_N1
+            else if (run > 5) result = result + 1
+          } else {
+            finderPenaltyAddHistory(run, runHistory)
+            if (!runColor)
+              result = result + finderPenaltyCountPatterns(runHistory) * QrCodeBuilder.PENALTY_N3
+            runColor = get(inner, outer)
+            run = 1
+          }
+        }
+        result = result + finderPenaltyTerminateAndCount(runColor, run, runHistory) * QrCodeBuilder.PENALTY_N3
+      }
+
     // Adjacent modules in row having same color, and finder-like patterns
-    (0 until size).foreach { y =>
-      var runColor: Boolean      = false;
-      var runX: Int              = 0;
-      val runHistory: Array[Int] = Array.ofDim[Int](7);
-      (0 until size).foreach { x =>
-        if (getModule(x, y) == runColor) {
-          runX = runX + 1
-          if (runX == 5) result = result + QrCodeBuilder.PENALTY_N1
-          else if (runX > 5) result = result + 1
-        } else {
-          finderPenaltyAddHistory(runX, runHistory)
-          if (!runColor)
-            result = result + finderPenaltyCountPatterns(runHistory) * QrCodeBuilder.PENALTY_N3
-          runColor = getModule(x, y)
-          runX = 1
-        }
-      }
-      result = result + finderPenaltyTerminateAndCount(runColor, runX, runHistory) * QrCodeBuilder.PENALTY_N3
-    }
+    processRun((inner, outer) => getModule(inner, outer))
+
     // Adjacent modules in column having same color, and finder-like patterns
-    (0 until size).foreach { x =>
-      var runColor: Boolean      = false;
-      var runY: Int              = 0;
-      val runHistory: Array[Int] = Array.ofDim[Int](7);
-      (0 until size).foreach { y =>
-        if (getModule(x, y) == runColor) {
-          runY = runY + 1
-          if (runY == 5) result = result + QrCodeBuilder.PENALTY_N1
-          else if (runY > 5) result = result + 1
-        } else {
-          finderPenaltyAddHistory(runY, runHistory)
-          if (!runColor)
-            result = result + finderPenaltyCountPatterns(runHistory) * QrCodeBuilder.PENALTY_N3
-          runColor = getModule(x, y)
-          runY = 1
-        }
-      }
-      result = result + finderPenaltyTerminateAndCount(runColor, runY, runHistory) * QrCodeBuilder.PENALTY_N3
-    }
+    processRun((inner, outer) => getModule(outer, inner))
 
     // 2*2 blocks of modules having same color
     for {
@@ -163,7 +150,7 @@ final class QrCodeBuilder(val size: Int) {
     } result = result + QrCodeBuilder.PENALTY_N2
 
     // Compute the smallest integer k >= 0 such that (45-5k)% <= dark/total <= (55+5k)%
-    val k = (Math.abs(darkPoints * 20 - totalPoints * 10) + totalPoints - 1) / totalPoints - 1;
+    val k = (Math.abs(darkPoints * 20 - totalPoints * 10) + totalPoints - 1) / totalPoints - 1
     assert(0 <= k && k <= 9)
     result = result + k * QrCodeBuilder.PENALTY_N4
     assert(0 <= result && result <= 2568888) // Non-tight upper bound based on default values of PENALTY_N1, ..., N4
@@ -177,7 +164,7 @@ final class QrCodeBuilder(val size: Int) {
     val data: Int = errorCorrectionLevel.formatBits << 3 | mask // errCorrLvl is uint2, mask is uint3
     var rem: Int  = data
     (0 until 10).foreach { i => rem = (rem << 1) ^ ((rem >>> 9) * 0x537) }
-    val bits: Int = (data << 10 | rem) ^ 0x5412; // uint15
+    val bits: Int = (data << 10 | rem) ^ 0x5412 // uint15
     assert(bits >>> 15 == 0)
 
     // Draw first copy
@@ -202,7 +189,7 @@ final class QrCodeBuilder(val size: Int) {
       (0 until 12).foreach { i =>
         rem = (rem << 1) ^ ((rem >>> 11) * 0x1f25)
       }
-      val bits: Int = version << 12 | rem; // uint18
+      val bits: Int = version << 12 | rem // uint18
       assert(bits >>> 18 == 0)
 
       // Draw two copies
@@ -253,7 +240,7 @@ final class QrCodeBuilder(val size: Int) {
 
     // Draw numerous alignment patterns
     val alignPatPos: Vector[Int] = QrCode.getAlignmentPatternPositions(version, size)
-    val numAlign: Int            = alignPatPos.size;
+    val numAlign: Int            = alignPatPos.size
     for {
       i <- (0 until numAlign)
       j <- (0 until numAlign)
@@ -299,8 +286,8 @@ final class QrCodeBuilder(val size: Int) {
 
 object QrCodeBuilder {
   // For use in getPenaltyScore(), when evaluating which mask is best.
-  private val PENALTY_N1: Int = 3;
-  private val PENALTY_N2: Int = 3;
-  private val PENALTY_N3: Int = 40;
-  private val PENALTY_N4: Int = 10;
+  private val PENALTY_N1: Int = 3
+  private val PENALTY_N2: Int = 3
+  private val PENALTY_N3: Int = 40
+  private val PENALTY_N4: Int = 10
 }
