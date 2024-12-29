@@ -1,6 +1,7 @@
 package eu.joaocosta.qrgen
 
 import scala.collection.mutable.BitSet
+import eu.joaocosta.qrgen.Helpers
 
 final class BitBuffer(val data: BitSet = new BitSet(), var bitLength: Int = 0) {
   
@@ -39,7 +40,7 @@ final class BitBuffer(val data: BitSet = new BitSet(), var bitLength: Int = 0) {
       throw new IllegalStateException("Maximum length reached")
     var i: Int = len - 1
     while (i >= 0) {
-      data.update(bitLength, QrCode.getBit(value, i))
+      data.update(bitLength, Helpers.getBit(value, i))
       i = i - 1
       bitLength = bitLength + 1
     }

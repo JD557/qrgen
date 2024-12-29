@@ -1,6 +1,7 @@
 package eu.joaocosta.qrgen;
 
 import java.util.Arrays
+import eu.joaocosta.qrgen.Helpers.*
 
 /**
  * A QR Code symbol, which is a type of two-dimension barcode.
@@ -24,51 +25,44 @@ import java.util.Arrays
  * @param version the version number to use, which must be in the range 1 to 40 (inclusive)
  * @param errorCorrectionLevel the error correction level to use
  * @param dataCodewords the bytes representing segments to encode (without ECC)
- * @param msk the mask pattern to use, which is either &#x2212;1 for automatic choice or from 0 to 7 for fixed choice
+ * @param mask the mask pattern to use, which is either -1 for automatic choice or from 0 to 7 for fixed choice
  * @see QrSegment
  */
-final class QrCode(val version: Int, val errorCorrectionLevel: QrCode.Ecc, dataCodewords: Array[Byte], private var msk: Int) {
+final class QrCode(val version: Int, val errorCorrectionLevel: QrCode.Ecc, dataCodewords: Array[Byte], val mask: Option[Int]) {
   // Check arguments and initialize fields
   if (version < QrCode.MIN_VERSION || version > QrCode.MAX_VERSION)
-    throw new IllegalArgumentException("Version value out of range");
-  if (mask < -1 || mask > 7)
-    throw new IllegalArgumentException("Mask value out of range");
+    throw new IllegalArgumentException("Version value out of range")
+  if (mask.exists(x => x < 0 || x > 7))
+    throw new IllegalArgumentException("Mask value out of range")
 
   val size = version * 4 + 17
 
-  // Private grids of modules/pixels, with dimensions of size*size:
-  
-  // The modules of this QR Code (false = light, true = dark).
-  // Immutable after constructor finishes. Accessed through getModule().
-  private val modules: Array[Array[Boolean]] = Array.ofDim[Boolean](size, size)
-  
-  // Indicates function modules that are not subjected to masking. Discarded when constructor finishes.
-  private var isFunction: Array[Array[Boolean]] = Array.ofDim[Boolean](size, size)
+  val (modules, bestMask) = {
+    // Private grids of modules/pixels, with dimensions of size*size
+    val builder = new QrCodeBuilder(size)
 
-  // Compute ECC, draw modules, do masking
-  drawFunctionPatterns()
-  drawCodewords(addEccAndInterleave(dataCodewords))
+    // Compute ECC, draw modules, do masking
+    drawFunctionPatterns(builder)
+    drawCodewords(builder, addEccAndInterleave(builder, dataCodewords))
 
-  // Do masking
-  if (msk == -1) {  // Automatically choose best mask
-    var minPenalty = Integer.MAX_VALUE
-    (0 until 8).foreach { i =>
-      applyMask(i)
-      drawFormatBits(i)
-      val penalty: Int = getPenaltyScore()
-      if (penalty < minPenalty) {
-        msk = i
-        minPenalty = penalty
-      }
-      applyMask(i)  // Undoes the mask due to XOR
+    // Do masking
+    val _bestMask = mask match {
+      case Some(m) => m
+      case None => // Automatically choose best mask
+        (0 until 8).foldLeft((0, Integer.MAX_VALUE)) { case ((best, minPenalty), testMask) =>
+          applyMask(builder, testMask)
+          drawFormatBits(builder, testMask)
+          val penalty: Int = getPenaltyScore(builder)
+          applyMask(builder, testMask)  // Undoes the mask due to XOR
+          if (penalty < minPenalty) (testMask, penalty)
+          else (best, minPenalty)
+        }._1
     }
+    applyMask(builder, _bestMask)  // Apply the final choice of mask
+    drawFormatBits(builder, _bestMask)  // Overwrite old format bits
+
+    (builder.result(), _bestMask)
   }
-  assert(0 <= msk && msk <= 7)
-  val mask = msk
-  applyMask(mask)  // Apply the final choice of mask
-  drawFormatBits(mask)  // Overwrite old format bits
-  
-  isFunction = null
   
   /**
    * Returns the color of the module (pixel) at the specified coordinates, which is {@code false}
@@ -84,17 +78,17 @@ final class QrCode(val version: Int, val errorCorrectionLevel: QrCode.Ecc, dataC
   }
 
   // Reads this object's version field, and draws and marks all function modules.
-  private def drawFunctionPatterns(): Unit = {
+  private def drawFunctionPatterns(builder: QrCodeBuilder): Unit = {
     // Draw horizontal and vertical timing patterns
     (0 until size).foreach { i =>
-      setFunctionModule(6, i, i % 2 == 0)
-      setFunctionModule(i, 6, i % 2 == 0)
+      builder.setFunctionModule(6, i, i % 2 == 0)
+      builder.setFunctionModule(i, 6, i % 2 == 0)
     }
     
     // Draw 3 finder patterns (all corners except bottom right; overwrites some timing modules)
-    drawFinderPattern(3, 3)
-    drawFinderPattern(size - 4, 3)
-    drawFinderPattern(3, size - 4)
+    drawFinderPattern(builder, 3, 3)
+    drawFinderPattern(builder, size - 4, 3)
+    drawFinderPattern(builder, 3, size - 4)
     
     // Draw numerous alignment patterns
     val alignPatPos: Array[Int] = getAlignmentPatternPositions()
@@ -104,17 +98,17 @@ final class QrCode(val version: Int, val errorCorrectionLevel: QrCode.Ecc, dataC
       j <- (0 until numAlign)
       // Don't draw on the three finder corners
       if (!(i == 0 && j == 0 || i == 0 && j == numAlign - 1 || i == numAlign - 1 && j == 0))
-    } drawAlignmentPattern(alignPatPos(i), alignPatPos(j))
+    } drawAlignmentPattern(builder, alignPatPos(i), alignPatPos(j))
     
     // Draw configuration data
-    drawFormatBits(0)  // Dummy mask value; overwritten later in the constructor
-    drawVersion()
+    drawFormatBits(builder, 0)  // Dummy mask value; overwritten later in the constructor
+    drawVersion(builder)
   }
   
   
   // Draws two copies of the format bits (with its own error correction code)
   // based on the given mask and this object's error correction level field.
-  private def drawFormatBits(msk: Int): Unit = {
+  private def drawFormatBits(builder: QrCodeBuilder, msk: Int): Unit = {
     // Calculate error correction code and pack bits
     val data: Int = errorCorrectionLevel.formatBits << 3 | msk  // errCorrLvl is uint2, mask is uint3
     var rem: Int = data
@@ -123,21 +117,21 @@ final class QrCode(val version: Int, val errorCorrectionLevel: QrCode.Ecc, dataC
     assert(bits >>> 15 == 0)
     
     // Draw first copy
-    (0 to 5).foreach { i => setFunctionModule(8, i, QrCode.getBit(bits, i)) }
-    setFunctionModule(8, 7, QrCode.getBit(bits, 6))
-    setFunctionModule(8, 8, QrCode.getBit(bits, 7))
-    setFunctionModule(7, 8, QrCode.getBit(bits, 8))
-    (9 until 15).foreach { i => setFunctionModule(14 - i, 8, QrCode.getBit(bits, i)) }
+    (0 to 5).foreach { i => builder.setFunctionModule(8, i, getBit(bits, i)) }
+    builder.setFunctionModule(8, 7, getBit(bits, 6))
+    builder.setFunctionModule(8, 8, getBit(bits, 7))
+    builder.setFunctionModule(7, 8, getBit(bits, 8))
+    (9 until 15).foreach { i => builder.setFunctionModule(14 - i, 8, getBit(bits, i)) }
     
     // Draw second copy
-    (0 until 8).foreach { i => setFunctionModule(size - 1 - i, 8, QrCode.getBit(bits, i))}
-    (8 until 15).foreach { i => setFunctionModule(8, size - 15 + i, QrCode.getBit(bits, i)) }
-    setFunctionModule(8, size - 8, true)  // Always dark
+    (0 until 8).foreach { i => builder.setFunctionModule(size - 1 - i, 8, getBit(bits, i))}
+    (8 until 15).foreach { i => builder.setFunctionModule(8, size - 15 + i, getBit(bits, i)) }
+    builder.setFunctionModule(8, size - 8, true)  // Always dark
   }
   
   // Draws two copies of the version bits (with its own error correction code),
   // based on this object's version field, iff 7 <= version <= 40.
-  private def drawVersion(): Unit = {
+  private def drawVersion(builder: QrCodeBuilder): Unit = {
     if (version >= 7) {
       // Calculate error correction code and pack bits
       var rem: Int = version  // version is uint6, in the range [7, 40]
@@ -149,11 +143,11 @@ final class QrCode(val version: Int, val errorCorrectionLevel: QrCode.Ecc, dataC
       
       // Draw two copies
       (0 until 18).foreach { i =>
-        val bit: Boolean = QrCode.getBit(bits, i)
+        val bit: Boolean = getBit(bits, i)
         val a: Int = size - 11 + i % 3
         val b: Int = i / 3
-        setFunctionModule(a, b, bit)
-        setFunctionModule(b, a, bit)
+        builder.setFunctionModule(a, b, bit)
+        builder.setFunctionModule(b, a, bit)
       }
     }
   }
@@ -161,7 +155,7 @@ final class QrCode(val version: Int, val errorCorrectionLevel: QrCode.Ecc, dataC
   
   // Draws a 9*9 finder pattern including the border separator,
   // with the center module at (x, y). Modules can be out of bounds.
-  private def drawFinderPattern(x: Int, y: Int): Unit = {
+  private def drawFinderPattern(builder: QrCodeBuilder, x: Int, y: Int): Unit = {
     for {
       dy <- (-4 to 4)
       dx <- (-4 to 4)
@@ -169,31 +163,23 @@ final class QrCode(val version: Int, val errorCorrectionLevel: QrCode.Ecc, dataC
       yy = y + dy
       if (0 <= xx && xx < size && 0 <= yy && yy < size)
       dist = Math.max(Math.abs(dx), Math.abs(dy))  // Chebyshev/infinity norm
-    } setFunctionModule(xx, yy, dist != 2 && dist != 4)
+    } builder.setFunctionModule(xx, yy, dist != 2 && dist != 4)
   }
   
   
   // Draws a 5*5 alignment pattern, with the center module
   // at (x, y). All modules must be in bounds.
-  private def drawAlignmentPattern(x: Int, y: Int): Unit = {
+  private def drawAlignmentPattern(builder: QrCodeBuilder, x: Int, y: Int): Unit = {
     for {
       dy <- (-2 to 2)
       dx <- (-2 to 2)
-    } setFunctionModule(x + dx, y + dy, Math.max(Math.abs(dx), Math.abs(dy)) != 1);
-  }
-  
-  
-  // Sets the color of a module and marks it as a function module.
-  // Only used by the constructor. Coordinates must be in bounds.
-  private def setFunctionModule(x: Int, y: Int, isDark: Boolean): Unit = {
-    modules(y)(x) = isDark
-    isFunction(y)(x) = true
+    } builder.setFunctionModule(x + dx, y + dy, Math.max(Math.abs(dx), Math.abs(dy)) != 1)
   }
   
   
   // Returns a new byte string representing the given data with the appropriate error correction
   // codewords appended to it, based on this object's version and error correction level.
-  private def addEccAndInterleave(data: Array[Byte]): Array[Byte] = {
+  private def addEccAndInterleave(builder: QrCodeBuilder, data: Array[Byte]): Array[Byte] = {
     if (data.length != QrCode.getNumDataCodewords(version, errorCorrectionLevel))
       throw new IllegalArgumentException()
     
@@ -218,7 +204,7 @@ final class QrCode(val version: Int, val errorCorrectionLevel: QrCode.Ecc, dataC
     }
     
     // Interleave (not concatenate) the bytes from every block into a single sequence
-    val result: Array[Byte] = Array.ofDim[Byte](rawCodewords);
+    val result: Array[Byte] = Array.ofDim[Byte](rawCodewords)
     k = 0
     for {
       i <- (0 until blocks(0).length)
@@ -235,7 +221,7 @@ final class QrCode(val version: Int, val errorCorrectionLevel: QrCode.Ecc, dataC
   
   // Draws the given sequence of 8-bit codewords (data and error correction) onto the entire
   // data area of this QR Code. Function modules need to be marked off before this is called.
-  private def drawCodewords(data: Array[Byte]): Unit = {
+  private def drawCodewords(builder: QrCodeBuilder, data: Array[Byte]): Unit = {
     if (data.length != QrCode.getNumRawDataModules(version) / 8)
       throw new IllegalArgumentException()
     
@@ -251,8 +237,8 @@ final class QrCode(val version: Int, val errorCorrectionLevel: QrCode.Ecc, dataC
         val x: Int = right - j  // Actual x coordinate
         val upward: Boolean = ((right + 1) & 2) == 0
         val y: Int = if (upward) (size - 1 - vert) else vert  // Actual y coordinate
-        if (!isFunction(y)(x) && i < data.length * 8) {
-          modules(y)(x) = QrCode.getBit(data(i >>> 3), 7 - (i & 7))
+        if (!builder.getFunctionModule(x, y) && i < data.length * 8) {
+          builder.setModule(x, y, getBit(data(i >>> 3), 7 - (i & 7)))
           i = i + 1
         }
         // If this QR Code has any remainder bits (0 to 7), they were assigned as
@@ -269,12 +255,13 @@ final class QrCode(val version: Int, val errorCorrectionLevel: QrCode.Ecc, dataC
   // before masking. Due to the arithmetic of XOR, calling applyMask() with
   // the same mask value a second time will undo the mask. A final well-formed
   // QR Code needs exactly one (not zero, two, etc.) mask applied.
-  private def applyMask(msk: Int): Unit = {
+  private def applyMask(builder: QrCodeBuilder, msk: Int): Unit = {
     if (msk < 0 || msk > 7)
       throw new IllegalArgumentException("Mask value out of range")
     for {
       y <- (0 until size)
       x <- (0 until size)
+      isFunction = builder.getFunctionModule(x, y)
     } {
         val invert = msk match {
           case 0 => (x + y) % 2 == 0
@@ -287,14 +274,14 @@ final class QrCode(val version: Int, val errorCorrectionLevel: QrCode.Ecc, dataC
           case 7 => ((x + y) % 2 + x * y % 3) % 2 == 0
           case _ => throw new IllegalArgumentException("Mask value out of range")
         }
-        modules(y)(x) = modules(y)(x) ^ (invert & !isFunction(y)(x))
+        builder.updateModule(x, y, _ ^ (invert & !isFunction))
       }
     }
   
   
   // Calculates and returns the penalty score based on state of this QR Code's current modules.
   // This is used by the automatic mask choice algorithm to find the mask pattern that yields the lowest score.
-  private def getPenaltyScore(): Int = {
+  private def getPenaltyScore(builder: QrCodeBuilder): Int = {
     var result: Int = 0
     
     // Adjacent modules in row having same color, and finder-like patterns
@@ -303,7 +290,7 @@ final class QrCode(val version: Int, val errorCorrectionLevel: QrCode.Ecc, dataC
       var runX: Int = 0;
       val runHistory: Array[Int] = Array.ofDim[Int](7);
       (0 until size).foreach { x =>
-        if (modules(y)(x) == runColor) {
+        if (builder.getModule(x, y) == runColor) {
           runX = runX + 1
           if (runX == 5) result = result + QrCode.PENALTY_N1
           else if (runX > 5) result = result + 1
@@ -311,7 +298,7 @@ final class QrCode(val version: Int, val errorCorrectionLevel: QrCode.Ecc, dataC
           finderPenaltyAddHistory(runX, runHistory)
           if (!runColor)
             result = result + finderPenaltyCountPatterns(runHistory) * QrCode.PENALTY_N3
-          runColor = modules(y)(x)
+          runColor = builder.getModule(x, y)
           runX = 1
         }
       }
@@ -323,7 +310,7 @@ final class QrCode(val version: Int, val errorCorrectionLevel: QrCode.Ecc, dataC
       var runY: Int = 0;
       val runHistory: Array[Int] = Array.ofDim[Int](7);
       (0 until size).foreach { y =>
-        if (modules(y)(x) == runColor) {
+        if (builder.getModule(x, y) == runColor) {
           runY = runY + 1
           if (runY == 5) result = result + QrCode.PENALTY_N1
           else if (runY > 5) result = result + 1
@@ -331,7 +318,7 @@ final class QrCode(val version: Int, val errorCorrectionLevel: QrCode.Ecc, dataC
           finderPenaltyAddHistory(runY, runHistory)
           if (!runColor)
             result = result + finderPenaltyCountPatterns(runHistory) * QrCode.PENALTY_N3
-          runColor = modules(y)(x)
+          runColor = builder.getModule(x, y)
           runY = 1
         }
       }
@@ -342,15 +329,15 @@ final class QrCode(val version: Int, val errorCorrectionLevel: QrCode.Ecc, dataC
     for {
       y <- (0 until size - 1)
       x <- (0 until size - 1)
-      color = modules(y)(x)
-      if (color == modules(y)(x + 1) &&
-          color == modules(y + 1)(x) &&
-          color == modules(y + 1)(x + 1))
+      color = builder.getModule(x, y)
+      if (color == builder.getModule(x + 1, y) &&
+          color == builder.getModule(x, y + 1) &&
+          color == builder.getModule(x + 1, y + 1))
     } result = result + QrCode.PENALTY_N2
     
     // Balance of dark and light modules
-    val dark = modules.view.map(_.count(identity)).sum
-    val total = size * size;  // Note that size is odd, so dark/total != 1/2
+    val dark = builder.darkPoints
+    val total = builder.totalPoints  // Note that size is odd, so dark/total != 1/2
     // Compute the smallest integer k >= 0 such that (45-5k)% <= dark/total <= (55+5k)%
     val k = (Math.abs(dark * 20 - total * 10) + total - 1) / total - 1;
     assert(0 <= k && k <= 9)
@@ -493,9 +480,6 @@ object QrCode {
       * NUM_ERROR_CORRECTION_BLOCKS(ecl.ordinal)(ver)
   }
 
-  // Returns true iff the i'th bit of x is set to 1.
-  def getBit(x: Int, i: Int): Boolean = ((x >>> i) & 1) != 0;
-
   /**
    * Returns a QR Code representing the specified Unicode text string at the specified error correction level.
    * As a conservative upper bound, this function is guaranteed to succeed for strings that have 738 or fewer
@@ -545,7 +529,7 @@ object QrCode {
    * largest version QR Code at the ECL, which means they are too long
    */
   def encodeSegments(segs: Seq[QrSegment], ecl: Ecc): QrCode = {
-    encodeSegments(segs, ecl, MIN_VERSION, MAX_VERSION, -1, true)
+    encodeSegments(segs, ecl, MIN_VERSION, MAX_VERSION, None, true)
   }
 
   /**
@@ -563,17 +547,16 @@ object QrCode {
    * @param ecl the error correction level to use (not {@code null}) (boostable)
    * @param minVersion the minimum allowed version of the QR Code (at least 1)
    * @param maxVersion the maximum allowed version of the QR Code (at most 40)
-   * @param mask the mask number to use (between 0 and 7 (inclusive)), or &#x2212;1 for automatic mask
+   * @param mask the mask number to use (between 0 and 7 (inclusive)), or None for automatic mask
    * @param boostEcl increases the ECC level as long as it doesn't increase the version number
    * @return a QR Code (not {@code null}) representing the segments
-   * @throws IllegalArgumentException if 1 &#x2264; minVersion &#x2264; maxVersion &#x2264; 40
-   * or &#x2212;1 &#x2264; mask &#x2264; 7 is violated
    * @throws DataTooLongException if the segments fail to fit in
    * the maxVersion QR Code at the ECL, which means they are too long
    */
-  def encodeSegments(segs: Seq[QrSegment], ecl: Ecc, minVersion: Int, maxVersion: Int, mask: Int, boostEcl: Boolean): QrCode = {
-    if (!(MIN_VERSION <= minVersion && minVersion <= maxVersion && maxVersion <= MAX_VERSION) || mask < -1 || mask > 7)
-      throw new IllegalArgumentException("Invalid value")
+  def encodeSegments(segs: Seq[QrSegment], ecl: Ecc, minVersion: Int, maxVersion: Int, mask: Option[Int], boostEcl: Boolean): QrCode = {
+    require(MIN_VERSION <= minVersion, "Invalid minVersion")
+    require(maxVersion <= MAX_VERSION, "Invalid maxVersion")
+    require(mask.forall(x => x >= 0 && x <= 7), "Invalid mask")
     
     // Find the minimal version number to use
     var version = minVersion
