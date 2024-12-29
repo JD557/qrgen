@@ -8,7 +8,7 @@ final class QrCodeBuilder(val size: Int) {
   // The modules of this QR Code (false = light, true = dark).
   private val modules: Array[Array[Boolean]] = Array.ofDim[Boolean](size, size)
   // Indicates function modules that are not subjected to masking
-  private var isFunction: Array[Array[Boolean]] = Array.ofDim[Boolean](size, size)
+  private val isFunction: Array[Array[Boolean]] = Array.ofDim[Boolean](size, size)
 
   /** The total number of points in the QR code */
   val totalPoints: Int = size * size
@@ -252,8 +252,8 @@ final class QrCodeBuilder(val size: Int) {
     drawFinderPattern(3, size - 4)
 
     // Draw numerous alignment patterns
-    val alignPatPos: Array[Int] = QrCode.getAlignmentPatternPositions(version, size)
-    val numAlign: Int           = alignPatPos.length;
+    val alignPatPos: Vector[Int] = QrCode.getAlignmentPatternPositions(version, size)
+    val numAlign: Int            = alignPatPos.size;
     for {
       i <- (0 until numAlign)
       j <- (0 until numAlign)

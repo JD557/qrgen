@@ -14,7 +14,7 @@ class BaselineSpec extends ScalaCheckSuite {
   }
 
   property("QR Codes generated from text match the reference implementation") {
-    forAll { (string: String) =>
+    forAllNoShrink { (string: String) =>
       compareQrCodes(
         QrCode.encodeText(string, Ecc.LOW),
         io.nayuki.qrcodegen.QrCode.encodeText(string, io.nayuki.qrcodegen.QrCode.Ecc.LOW)
@@ -35,7 +35,7 @@ class BaselineSpec extends ScalaCheckSuite {
   }
 
   property("QR Codes generated from binary match the reference implementation") {
-    forAll { (binary: Vector[Byte]) =>
+    forAllNoShrink { (binary: Vector[Byte]) =>
       compareQrCodes(
         QrCode.encodeBinary(binary, Ecc.LOW),
         io.nayuki.qrcodegen.QrCode.encodeBinary(binary.toArray, io.nayuki.qrcodegen.QrCode.Ecc.LOW)

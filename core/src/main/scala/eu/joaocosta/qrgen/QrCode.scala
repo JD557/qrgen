@@ -91,21 +91,17 @@ object QrCode {
   // The result is in the range [208, 29648]. This could be implemented as a 40-entry lookup table.
   def getNumRawDataModules(version: Int): Int = {
     require(version >= MIN_VERSION && version <= MAX_VERSION, "Version number out of range")
-
-    val size: Int   = version * 4 + 17
-    var result: Int = size * size // Number of modules in the whole QR Code square
-    result -= 8 * 8 * 3 // Subtract the three finders with separators
-    result -= 15 * 2 + 1 // Subtract the format information and dark module
-    result -= (size - 16) * 2 // Subtract the timing patterns (excluding finders)
-    // The five lines above are equivalent to: int result = (16 * ver + 128) * ver + 64;
-    if (version >= 2) {
-      val numAlign: Int = version / 7 + 2
-      result -= (numAlign - 1) * (numAlign - 1) * 25 // Subtract alignment patterns not overlapping with timing patterns
-      result -= (numAlign - 2) * 2 * 20              // Subtract alignment patterns that overlap with timing patterns
-      // The two lines above are equivalent to: result -= (25 * numAlign - 10) * numAlign - 55;
-      if (version >= 7)
-        result -= 6 * 3 * 2 // Subtract version information
-    }
+    val numAlign: Int = version / 7 + 2
+    val size: Int     = version * 4 + 17
+    val filledModules =
+      (8 * 8 * 3) +         // Three finders with separators
+        (15 * 2 + 1) +      // Format information and dark module
+        ((size - 16) * 2) + // Timing patterns (excluding finders)
+        (if (version >= 2) ((numAlign - 1) * (numAlign - 1) * 25)
+         else 0) + // Alignment patterns not overlapping with timing patterns
+        (if (version >= 2) ((numAlign - 2) * 2 * 20) else 0) + // Alignment patterns that overlap with timing patterns
+        (if (version >= 7) (6 * 3 * 2) else 0)                 // Version information
+    val result: Int = size * size - filledModules
     assert(208 <= result && result <= 29648)
     result
   }
@@ -113,21 +109,12 @@ object QrCode {
   // Returns an ascending list of positions of alignment patterns for this version number.
   // Each position is in the range [0,177), and are used on both the x and y axes.
   // This could be implemented as lookup table of 40 variable-length lists of unsigned bytes.
-  def getAlignmentPatternPositions(version: Int, size: Int): Array[Int] = {
-    if (version == 1) Array.empty[Int]
+  def getAlignmentPatternPositions(version: Int, size: Int): Vector[Int] = {
+    if (version == 1) Vector.empty[Int]
     else {
-      val numAlign: Int      = version / 7 + 2
-      val step: Int          = (version * 8 + numAlign * 3 + 5) / (numAlign * 4 - 4) * 2
-      val result: Array[Int] = Array.ofDim[Int](numAlign)
-      result(0) = 6
-      var i   = result.length - 1
-      var pos = size - 7
-      while (i >= 1) {
-        result(i) = pos
-        i = i - 1
-        pos = pos - step
-      }
-      result
+      val numAlign: Int = version / 7 + 2
+      val step: Int     = (version * 8 + numAlign * 3 + 5) / (numAlign * 4 - 4) * 2
+      (6 +: Iterator.iterate(size - 7)(_ - step).take(numAlign - 1).toVector.reverse)
     }
   }
 
