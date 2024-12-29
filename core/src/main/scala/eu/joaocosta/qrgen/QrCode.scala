@@ -235,32 +235,32 @@ object QrCode {
     }
 
     // Concatenate all segments to create the data bit string
-    val bb: BitBuffer = new BitBuffer();
+    val bb = new BitBuffer.Mutable();
     segs.foreach { seg =>
       bb.appendBits(seg.mode.modeBits, 4)
       bb.appendBits(seg.numChars, seg.mode.numCharCountBits(version))
       bb.appendData(seg.data)
     }
-    assert(bb.getBitLength() == dataUsedBits)
+    assert(bb.size == dataUsedBits)
 
     // Add terminator and pad up to a byte if applicable
     val dataCapacityBits = Ecc.getNumDataCodewords(version, boostedEcl) * 8
-    assert(bb.getBitLength() <= dataCapacityBits)
-    bb.appendBits(0, Math.min(4, dataCapacityBits - bb.getBitLength()))
-    bb.appendBits(0, (8 - bb.getBitLength() % 8) % 8)
-    assert(bb.getBitLength()                % 8 == 0)
+    assert(bb.size <= dataCapacityBits)
+    bb.appendBits(0, Math.min(4, dataCapacityBits - bb.size))
+    bb.appendBits(0, (8 - bb.size % 8) % 8)
+    assert(bb.size                % 8 == 0)
 
     // Pad with alternating bytes until data capacity is reached
     var padByte = 0xec
-    while (bb.getBitLength() < dataCapacityBits) {
+    while (bb.size < dataCapacityBits) {
       bb.appendBits(padByte, 8)
       padByte = padByte ^ 0xec ^ 0x11
     }
 
     // Pack bits into bytes in big endian
-    val dataCodewords: Array[Byte] = Array.ofDim[Byte](bb.getBitLength() / 8)
-    (0 until bb.getBitLength()).foreach { i =>
-      dataCodewords(i >>> 3) = (dataCodewords(i >>> 3) | (bb.getBit(i) << (7 - (i & 7)))).toByte
+    val dataCodewords: Array[Byte] = Array.ofDim[Byte](bb.size / 8)
+    (0 until bb.size).foreach { i =>
+      dataCodewords(i >>> 3) = (dataCodewords(i >>> 3) | (bb.getInt(i) << (7 - (i & 7)))).toByte
     }
 
     // Create the QR Code object

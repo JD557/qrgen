@@ -15,9 +15,7 @@ import java.util.regex.Pattern;
   * This class can represent kanji mode segments, but provides no help in encoding them
   * - see {@link QrSegmentAdvanced} for full kanji support.</p>
   */
-final class QrSegment(val mode: QrSegment.Mode, val numChars: Int, _data: BitBuffer) {
-  val data = _data.clone()
-}
+final case class QrSegment(mode: QrSegment.Mode, numChars: Int, data: BitBuffer.Immutable)
 
 object QrSegment {
 
@@ -62,25 +60,23 @@ object QrSegment {
     * @return a segment (not {@code null}) containing the data
     */
   def makeBytes(data: Seq[Byte]): QrSegment = {
-    val bb: BitBuffer = new BitBuffer()
+    val bb = new BitBuffer.Mutable()
     data.foreach(b => bb.appendBits(b & 0xff, 8))
-    new QrSegment(Mode.BYTE, data.length, bb)
+    QrSegment(Mode.BYTE, data.length, bb.toImmutable)
   }
 
   /** Returns a segment representing the specified string of decimal digits encoded in numeric mode.
     * @param digits the text (not {@code null}), with only digits from 0 to 9 allowed
     * @return a segment (not {@code null}) containing the text
-    * @throws IllegalArgumentException if the string contains non-digit characters
     */
   def makeNumeric(digits: CharSequence): QrSegment = {
-    if (!isNumeric(digits))
-      throw new IllegalArgumentException("String contains non-numeric characters")
+    require(isNumeric(digits), "String contains non-numeric characters")
 
-    val bb: BitBuffer = new BitBuffer()
+    val bb = new BitBuffer.Mutable()
     digits.toString.sliding(3, 3).foreach { slice => // Process groups of 3
       bb.appendBits(slice.toInt, slice.size * 3 + 1)
     }
-    new QrSegment(Mode.NUMERIC, digits.length(), bb)
+    QrSegment(Mode.NUMERIC, digits.length(), bb.toImmutable)
   }
 
   /** Returns a segment representing the specified text string encoded in alphanumeric mode.
@@ -88,13 +84,11 @@ object QrSegment {
     * dollar, percent, asterisk, plus, hyphen, period, slash, colon.
     * @param text the text (not {@code null}), with only certain characters allowed
     * @return a segment (not {@code null}) containing the text
-    * @throws IllegalArgumentException if the string contains non-encodable characters
     */
   def makeAlphanumeric(text: CharSequence): QrSegment = {
-    if (!isAlphanumeric(text))
-      throw new IllegalArgumentException("String contains unencodable characters in alphanumeric mode")
+    require(isAlphanumeric(text), "String contains unencodable characters in alphanumeric mode")
 
-    val bb: BitBuffer = new BitBuffer()
+    val bb = new BitBuffer.Mutable()
     var i             = 0;
     while (i <= text.length() - 2) { // Process groups of 2
       var temp: Int = ALPHANUMERIC_CHARSET.indexOf(text.charAt(i)) * 45
@@ -104,7 +98,7 @@ object QrSegment {
     }
     if (i < text.length()) // 1 character remaining
       bb.appendBits(ALPHANUMERIC_CHARSET.indexOf(text.charAt(i)), 6)
-    new QrSegment(Mode.ALPHANUMERIC, text.length(), bb)
+    QrSegment(Mode.ALPHANUMERIC, text.length(), bb.toImmutable)
   }
 
   /** Returns a list of zero or more segments to represent the specified Unicode text string.
@@ -121,7 +115,7 @@ object QrSegment {
     else if (isAlphanumeric(text))
       result.addOne(makeAlphanumeric(text))
     else
-      result.addOne(makeBytes(text.toString().getBytes(StandardCharsets.UTF_8)))
+      result.addOne(makeBytes(text.toString().getBytes(StandardCharsets.UTF_8).toIndexedSeq))
     result.result()
   }
 
@@ -132,7 +126,7 @@ object QrSegment {
     * @throws IllegalArgumentException if the value is outside the range [0, 10<sup>6</sup>)
     */
   def makeEci(assignVal: Int): QrSegment = {
-    val bb: BitBuffer = new BitBuffer()
+    val bb = new BitBuffer.Mutable()
     if (assignVal < 0)
       throw new IllegalArgumentException("ECI assignment value out of range")
     else if (assignVal < (1 << 7))
@@ -145,7 +139,7 @@ object QrSegment {
       bb.appendBits(assignVal, 21)
     } else
       throw new IllegalArgumentException("ECI assignment value out of range")
-    new QrSegment(Mode.ECI, 0, bb)
+    QrSegment(Mode.ECI, 0, bb.toImmutable)
   }
 
   // Calculates the number of bits needed to encode the given segments at the given version.
@@ -159,7 +153,7 @@ object QrSegment {
           val ccbits = seg.mode.numCharCountBits(version)
           if (seg.numChars >= (1 << ccbits)) -1 // The segment's length doesn't fit the field's bit width
           else {
-            val newResult = result + 4 + ccbits + seg.data.getBitLength()
+            val newResult = result + 4 + ccbits + seg.data.size
             if (newResult > Integer.MAX_VALUE) -1 // The sum will overflow an int type
             else newResult
           }
