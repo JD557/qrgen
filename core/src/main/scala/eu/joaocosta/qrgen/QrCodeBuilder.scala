@@ -50,7 +50,7 @@ final class QrCodeBuilder(val size: Int) {
   // the same mask value a second time will undo the mask. A final well-formed
   // QR Code needs exactly one (not zero, two, etc.) mask applied.
   def applyMask(mask: Int): Unit = {
-    require(mask >= 0 && mask < 7, "Mask value out of range")
+    require(mask >= 0 && mask <= 7, "Mask value out of range")
     for {
       y <- (0 until size)
       x <- (0 until size)
