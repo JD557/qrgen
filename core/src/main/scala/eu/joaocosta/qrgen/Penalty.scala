@@ -1,7 +1,6 @@
 package eu.joaocosta.qrgen
 
 import scala.annotation.tailrec
-import scala.collection.immutable.Queue
 
 object Penalty {
   // For use in getPenaltyScore(), when evaluating which mask is best.
@@ -27,7 +26,7 @@ object Penalty {
       size: Int,
       currentRunColor: Boolean,
       currentRunLength: Int,
-      runHistory: Queue[Int]
+      runHistory: Vector[Int]
   ): Int = {
     val newHistory =
       if (currentRunColor) { // Terminate dark run
@@ -36,16 +35,16 @@ object Penalty {
       } else {
         finderPenaltyAddHistory(size, currentRunLength + size, runHistory) // Add light border to final run
       }
-    finderPenaltyCountPatterns(size, newHistory.toVector)
+    finderPenaltyCountPatterns(size, newHistory)
   }
 
   // Pushes the given value to the front and drops the last value. A helper function for getPenaltyScore().
-  private def finderPenaltyAddHistory(size: Int, currentRunLength: Int, runHistory: Queue[Int]): Queue[Int] = {
-    val addLightBorder = runHistory.last == 0 // Add light border to initial run
+  private def finderPenaltyAddHistory(size: Int, currentRunLength: Int, runHistory: Vector[Int]): Vector[Int] = {
+    val addLightBorder = runHistory.head == 0 // Add light border to initial run
     val newHead = 
       if (addLightBorder) currentRunLength + size
       else currentRunLength
-    runHistory.enqueue(newHead).dequeue._2
+    newHead +: runHistory.dropRight(1)
   }
 
   private def processRun(size: Int, get: (Int, Int) => Boolean): Int = {
@@ -56,7 +55,7 @@ object Penalty {
         inner: Int = 0,
         runColor: Boolean = false,
         run: Int = 0,
-        runHistory: Queue[Int] = Queue.fill(7)(0)
+        runHistory: Vector[Int] = Vector.fill(7)(0)
     ): Int =
       if (inner >= size) result + finderPenaltyTerminateAndCount(size, runColor, run, runHistory) * PENALTY_N3
       else {
@@ -75,7 +74,7 @@ object Penalty {
           val newHistory = finderPenaltyAddHistory(size, run, runHistory)
           innerLoop(
             if (runColor) result
-            else result + finderPenaltyCountPatterns(size, newHistory.toVector) * PENALTY_N3,
+            else result + finderPenaltyCountPatterns(size, newHistory) * PENALTY_N3,
             outer,
             inner + 1,
             get(inner, outer),
