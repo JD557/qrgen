@@ -1,6 +1,7 @@
 package eu.joaocosta.qrgen
 
 import scala.annotation.tailrec
+import scala.collection.immutable.Queue
 
 object Penalty {
   // For use in getPenaltyScore(), when evaluating which mask is best.
@@ -11,7 +12,7 @@ object Penalty {
 
   // Can only be called immediately after a light run is added, and
   // returns either 0, 1, or 2. A helper function for getPenaltyScore().
-  private def finderPenaltyCountPatterns(size: Int, runHistory: Array[Int]): Int = {
+  private def finderPenaltyCountPatterns(size: Int, runHistory: Vector[Int]): Int = {
     val n: Int = runHistory(1)
     assert(n <= size * 3)
     val core: Boolean =
@@ -26,25 +27,25 @@ object Penalty {
       size: Int,
       currentRunColor: Boolean,
       currentRunLength: Int,
-      runHistory: Array[Int]
+      runHistory: Queue[Int]
   ): Int = {
-    if (currentRunColor) { // Terminate dark run
-      finderPenaltyAddHistory(size, currentRunLength, runHistory)
-      finderPenaltyAddHistory(size, size, runHistory) // Add light border to final run
-    } else {
-      finderPenaltyAddHistory(size, currentRunLength + size, runHistory) // Add light border to final run
-    }
-    finderPenaltyCountPatterns(size, runHistory)
+    val newHistory =
+      if (currentRunColor) { // Terminate dark run
+        val nextHistory = finderPenaltyAddHistory(size, currentRunLength, runHistory)
+        finderPenaltyAddHistory(size, size, nextHistory) // Add light border to final run
+      } else {
+        finderPenaltyAddHistory(size, currentRunLength + size, runHistory) // Add light border to final run
+      }
+    finderPenaltyCountPatterns(size, newHistory.toVector)
   }
 
   // Pushes the given value to the front and drops the last value. A helper function for getPenaltyScore().
-  // Note: This mutates the array and returns it back.
-  private def finderPenaltyAddHistory(size: Int, currentRunLength: Int, runHistory: Array[Int]): Array[Int] = {
-    val addLightBorder = runHistory(0) == 0 // Add light border to initial run
-    System.arraycopy(runHistory, 0, runHistory, 1, runHistory.length - 1)
-    if (addLightBorder) runHistory(0) = currentRunLength + size
-    else runHistory(0) = currentRunLength
-    runHistory
+  private def finderPenaltyAddHistory(size: Int, currentRunLength: Int, runHistory: Queue[Int]): Queue[Int] = {
+    val addLightBorder = runHistory.last == 0 // Add light border to initial run
+    val newHead = 
+      if (addLightBorder) currentRunLength + size
+      else currentRunLength
+    runHistory.enqueue(newHead).dequeue._2
   }
 
   private def processRun(size: Int, get: (Int, Int) => Boolean): Int = {
@@ -55,7 +56,7 @@ object Penalty {
         inner: Int = 0,
         runColor: Boolean = false,
         run: Int = 0,
-        runHistory: Array[Int] = Array.ofDim[Int](7)
+        runHistory: Queue[Int] = Queue.fill(7)(0)
     ): Int =
       if (inner >= size) result + finderPenaltyTerminateAndCount(size, runColor, run, runHistory) * PENALTY_N3
       else {
@@ -74,7 +75,7 @@ object Penalty {
           val newHistory = finderPenaltyAddHistory(size, run, runHistory)
           innerLoop(
             if (runColor) result
-            else result + finderPenaltyCountPatterns(size, newHistory) * PENALTY_N3,
+            else result + finderPenaltyCountPatterns(size, newHistory.toVector) * PENALTY_N3,
             outer,
             inner + 1,
             get(inner, outer),
