@@ -1,5 +1,7 @@
 package eu.joaocosta.qrgen
 
+import scala.annotation.tailrec
+
 object Penalty {
   // For use in getPenaltyScore(), when evaluating which mask is best.
   private val PENALTY_N1: Int = 3
@@ -36,37 +38,54 @@ object Penalty {
   }
 
   // Pushes the given value to the front and drops the last value. A helper function for getPenaltyScore().
-  private def finderPenaltyAddHistory(size: Int, currentRunLength: Int, runHistory: Array[Int]): Unit = {
+  // Note: This mutates the array and returns it back.
+  private def finderPenaltyAddHistory(size: Int, currentRunLength: Int, runHistory: Array[Int]): Array[Int] = {
     val addLightBorder = runHistory(0) == 0 // Add light border to initial run
     System.arraycopy(runHistory, 0, runHistory, 1, runHistory.length - 1)
     if (addLightBorder) runHistory(0) = currentRunLength + size
     else runHistory(0) = currentRunLength
+    runHistory
   }
 
   private def processRun(size: Int, get: (Int, Int) => Boolean): Int = {
-    (0 until size).foldLeft(0) { (outerResult, outer) =>
-      var runColor: Boolean      = false
-      var run: Int               = 0
-      val runHistory: Array[Int] = Array.ofDim[Int](7)
-      outerResult + (0 until size).foldLeft(0) { case (innerResult, inner) =>
+    @tailrec
+    def innerLoop(
+        result: Int,
+        outer: Int,
+        inner: Int = 0,
+        runColor: Boolean = false,
+        run: Int = 0,
+        runHistory: Array[Int] = Array.ofDim[Int](7)
+    ): Int =
+      if (inner >= size) result + finderPenaltyTerminateAndCount(size, runColor, run, runHistory) * PENALTY_N3
+      else {
         if (get(inner, outer) == runColor) {
-          run = run + 1
-          if (run == 5) innerResult + PENALTY_N1
-          else if (run > 5) innerResult + 1
-          else innerResult
+          innerLoop(
+            if (run == 4) result + PENALTY_N1
+            else if (run > 4) result + 1
+            else result,
+            outer,
+            inner + 1,
+            runColor,
+            run + 1,
+            runHistory
+          )
         } else {
-          finderPenaltyAddHistory(size, run, runHistory)
-          run = 1
-          if (!runColor) {
-            runColor = get(inner, outer)
-            innerResult + finderPenaltyCountPatterns(size, runHistory) * PENALTY_N3
-          }
-          else {
-            runColor = get(inner, outer)
-            innerResult
-          }
+          val newHistory = finderPenaltyAddHistory(size, run, runHistory)
+          innerLoop(
+            if (runColor) result
+            else result + finderPenaltyCountPatterns(size, newHistory) * PENALTY_N3,
+            outer,
+            inner + 1,
+            get(inner, outer),
+            1,
+            newHistory
+          )
         }
-      } + finderPenaltyTerminateAndCount(size, runColor, run, runHistory) * PENALTY_N3
+      }
+
+    (0 until size).foldLeft(0) { (outerResult, outer) =>
+      innerLoop(outerResult, outer)
     }
   }
 
