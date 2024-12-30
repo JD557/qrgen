@@ -59,8 +59,7 @@ object Ecc {
   // Returns a new byte string representing the given data with the appropriate error correction
   // codewords appended to it, based on this object's version and error correction level.
   def addEccAndInterleave(version: Int, errorCorrectionLevel: Ecc, data: Array[Byte]): Array[Byte] = {
-    if (data.length != getNumDataCodewords(version, errorCorrectionLevel))
-      throw new IllegalArgumentException()
+    require(data.length == getNumDataCodewords(version, errorCorrectionLevel), "Invalid data length")
 
     // Calculate parameter numbers
     val numBlocks: Int      = NUM_ERROR_CORRECTION_BLOCKS(errorCorrectionLevel.ordinal)(version)

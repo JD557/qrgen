@@ -2,6 +2,7 @@ package eu.joaocosta.qrgen
 
 import java.util.Arrays
 import eu.joaocosta.qrgen.Helpers.*
+import scala.collection.immutable.ArraySeq
 
 /** A QR Code symbol, which is a type of two-dimension barcode.
   * Invented by Denso Wave and described in the ISO/IEC 18004 standard.
@@ -27,12 +28,10 @@ import eu.joaocosta.qrgen.Helpers.*
   * @param mask the mask pattern to use, which is either -1 for automatic choice or from 0 to 7 for fixed choice
   * @see QrSegment
   */
-final class QrCode(val version: Int, val errorCorrectionLevel: Ecc, dataCodewords: Array[Byte], val mask: Option[Int]) {
+final case class QrCode(version: Int, errorCorrectionLevel: Ecc, dataCodewords: ArraySeq[Byte], mask: Option[Int]) {
   // Check arguments and initialize fields
-  if (version < QrCode.MIN_VERSION || version > QrCode.MAX_VERSION)
-    throw new IllegalArgumentException("Version value out of range")
-  if (mask.exists(x => x < 0 || x > 7))
-    throw new IllegalArgumentException("Mask value out of range")
+  require(version >= QrCode.MIN_VERSION && version <= QrCode.MAX_VERSION, "Version value out of range")
+  require(mask.forall(x => x >= 0 && x <= 7), "Mask value out of range")
 
   val size = version * 4 + 17
 
@@ -42,7 +41,7 @@ final class QrCode(val version: Int, val errorCorrectionLevel: Ecc, dataCodeword
 
     // Compute ECC, draw modules, do masking
     builder.drawFunctionPatterns(version, errorCorrectionLevel)
-    builder.drawCodewords(version, Ecc.addEccAndInterleave(version, errorCorrectionLevel, dataCodewords))
+    builder.drawCodewords(version, Ecc.addEccAndInterleave(version, errorCorrectionLevel, dataCodewords.toArray))
 
     // Do masking
     val _bestMask = mask match {
@@ -251,6 +250,6 @@ object QrCode {
     }
 
     // Create the QR Code object
-    new QrCode(version, boostedEcl, dataCodewords, mask)
+    new QrCode(version, boostedEcl, ArraySeq.unsafeWrapArray(dataCodewords), mask)
   }
 }
