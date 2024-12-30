@@ -44,27 +44,30 @@ object Penalty {
   }
 
   private def processRun(size: Int, get: (Int, Int) => Boolean): Int = {
-    var result = 0
-    (0 until size).foreach { outer =>
+    (0 until size).foldLeft(0) { (outerResult, outer) =>
       var runColor: Boolean      = false
       var run: Int               = 0
       val runHistory: Array[Int] = Array.ofDim[Int](7)
-      (0 until size).foreach { inner =>
+      outerResult + (0 until size).foldLeft(0) { case (innerResult, inner) =>
         if (get(inner, outer) == runColor) {
           run = run + 1
-          if (run == 5) result = result + PENALTY_N1
-          else if (run > 5) result = result + 1
+          if (run == 5) innerResult + PENALTY_N1
+          else if (run > 5) innerResult + 1
+          else innerResult
         } else {
           finderPenaltyAddHistory(size, run, runHistory)
-          if (!runColor)
-            result = result + finderPenaltyCountPatterns(size, runHistory) * PENALTY_N3
-          runColor = get(inner, outer)
           run = 1
+          if (!runColor) {
+            runColor = get(inner, outer)
+            innerResult + finderPenaltyCountPatterns(size, runHistory) * PENALTY_N3
+          }
+          else {
+            runColor = get(inner, outer)
+            innerResult
+          }
         }
-      }
-      result = result + finderPenaltyTerminateAndCount(size, runColor, run, runHistory) * PENALTY_N3
+      } + finderPenaltyTerminateAndCount(size, runColor, run, runHistory) * PENALTY_N3
     }
-    result
   }
 
   // Calculates and returns the penalty score based on state of this QR Code's current modules.
