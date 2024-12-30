@@ -51,7 +51,7 @@ final case class QrCode(version: Int, errorCorrectionLevel: Ecc, dataCodewords: 
           .foldLeft((0, Integer.MAX_VALUE)) { case ((best, minPenalty), testMask) =>
             builder.applyMask(testMask)
             builder.drawFormatBits(errorCorrectionLevel, testMask)
-            val penalty: Int = builder.getPenaltyScore()
+            val penalty: Int = Penalty.getPenaltyScore(builder)
             builder.applyMask(testMask) // Undoes the mask due to XOR
             if (penalty < minPenalty) (testMask, penalty)
             else (best, minPenalty)
