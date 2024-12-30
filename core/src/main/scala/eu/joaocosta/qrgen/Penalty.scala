@@ -43,37 +43,40 @@ object Penalty {
     else runHistory(0) = currentRunLength
   }
 
+  private def processRun(size: Int, get: (Int, Int) => Boolean): Int = {
+    var result = 0
+    (0 until size).foreach { outer =>
+      var runColor: Boolean      = false
+      var run: Int               = 0
+      val runHistory: Array[Int] = Array.ofDim[Int](7)
+      (0 until size).foreach { inner =>
+        if (get(inner, outer) == runColor) {
+          run = run + 1
+          if (run == 5) result = result + PENALTY_N1
+          else if (run > 5) result = result + 1
+        } else {
+          finderPenaltyAddHistory(size, run, runHistory)
+          if (!runColor)
+            result = result + finderPenaltyCountPatterns(size, runHistory) * PENALTY_N3
+          runColor = get(inner, outer)
+          run = 1
+        }
+      }
+      result = result + finderPenaltyTerminateAndCount(size, runColor, run, runHistory) * PENALTY_N3
+    }
+    result
+  }
+
   // Calculates and returns the penalty score based on state of this QR Code's current modules.
   // This is used by the automatic mask choice algorithm to find the mask pattern that yields the lowest score.
   def getPenaltyScore(builder: QrCodeBuilder.View): Int = {
     var result: Int = 0
 
-    def processRun(get: (Int, Int) => Boolean): Unit =
-      (0 until builder.size).foreach { outer =>
-        var runColor: Boolean      = false
-        var run: Int               = 0
-        val runHistory: Array[Int] = Array.ofDim[Int](7)
-        (0 until builder.size).foreach { inner =>
-          if (get(inner, outer) == runColor) {
-            run = run + 1
-            if (run == 5) result = result + PENALTY_N1
-            else if (run > 5) result = result + 1
-          } else {
-            finderPenaltyAddHistory(builder.size, run, runHistory)
-            if (!runColor)
-              result = result + finderPenaltyCountPatterns(builder.size, runHistory) * PENALTY_N3
-            runColor = get(inner, outer)
-            run = 1
-          }
-        }
-        result = result + finderPenaltyTerminateAndCount(builder.size, runColor, run, runHistory) * PENALTY_N3
-      }
-
     // Adjacent modules in row having same color, and finder-like patterns
-    processRun((inner, outer) => builder.getModule(inner, outer))
+    result += processRun(builder.size, (inner, outer) => builder.getModule(inner, outer))
 
     // Adjacent modules in column having same color, and finder-like patterns
-    processRun((inner, outer) => builder.getModule(outer, inner))
+    result += processRun(builder.size, (inner, outer) => builder.getModule(outer, inner))
 
     // 2*2 blocks of modules having same color
     for {
