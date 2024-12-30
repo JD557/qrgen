@@ -92,29 +92,28 @@ object Penalty {
   // Calculates and returns the penalty score based on state of this QR Code's current modules.
   // This is used by the automatic mask choice algorithm to find the mask pattern that yields the lowest score.
   def getPenaltyScore(builder: QrCodeBuilder.View): Int = {
-    var result: Int = 0
-
     // Adjacent modules in row having same color, and finder-like patterns
-    result += processRun(builder.size, (inner, outer) => builder.getModule(inner, outer))
+    val rowPenalty = processRun(builder.size, (inner, outer) => builder.getModule(inner, outer))
 
     // Adjacent modules in column having same color, and finder-like patterns
-    result += processRun(builder.size, (inner, outer) => builder.getModule(outer, inner))
+    val columnPenalty = processRun(builder.size, (inner, outer) => builder.getModule(outer, inner))
 
     // 2*2 blocks of modules having same color
-    for {
-      y <- (0 until builder.size - 1)
+    val blockPenalty = (for {
+      y <- (0 until builder.size - 1).iterator
       x <- (0 until builder.size - 1)
       color = builder.getModule(x, y)
       if (color == builder.getModule(x + 1, y) &&
         color == builder.getModule(x, y + 1) &&
         color == builder.getModule(x + 1, y + 1))
-    } result = result + PENALTY_N2
+    } yield PENALTY_N2).sum
 
     // Compute the smallest integer k >= 0 such that (45-5k)% <= dark/total <= (55+5k)%
     val k =
       (Math.abs(builder.darkPoints * 20 - builder.totalPoints * 10) + builder.totalPoints - 1) / builder.totalPoints - 1
     assert(0 <= k && k <= 9)
-    result = result + k * PENALTY_N4
+    val kPenalty = k * PENALTY_N4
+    val result   = rowPenalty + columnPenalty + blockPenalty + kPenalty
     assert(0 <= result && result <= 2568888) // Non-tight upper bound based on default values of PENALTY_N1, ..., N4
     result
   }
