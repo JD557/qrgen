@@ -1,7 +1,7 @@
 package eu.joaocosta.qrgen
 
 import munit.ScalaCheckSuite
-import org.scalacheck.Prop._
+import org.scalacheck.Prop.*
 
 class BaselineSpec extends ScalaCheckSuite {
 
