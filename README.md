@@ -4,7 +4,9 @@ An opinionated port of https://github.com/nayuki/QR-Code-generator to Scala.
 
 Targets the JVM, JS and Native.
 
-## Usage
+## Usage examples
+
+Print QR Code to the standard output:
 
 ```scala
 //> using scala 3.3.4
@@ -17,6 +19,27 @@ val qrCode = QrCode.encodeText("https://www.scala-lang.org/", Ecc.LOW)
 qrCode.foreach { line =>
   println(line.map(x => if (x) "\u2588" else " ").mkString)
 }
+```
+
+Store QR Code as a BMP:
+```scala
+//> using scala 3.3.4
+//> using dep eu.joaocosta::qrgen::0.1.0
+//> using dep eu.joaocosta::minart::0.6.2
+
+import eu.joaocosta.minart.backend.defaults.given
+import eu.joaocosta.minart.graphics.*
+import eu.joaocosta.minart.graphics.image.Image
+import eu.joaocosta.minart.runtime.Resource
+import eu.joaocosta.qrgen.*
+
+val qrCode = QrCode.encodeText("https://www.scala-lang.org/", Ecc.LOW)
+
+val surface = RamSurface(
+  qrCode.map(_.map(set => Color.grayscale(if (set) 0 else 255)))
+)
+
+Image.storeBmpImage(surface.view.scale(4), Resource("qrcode.bmp"))
 ```
 
 ## Differences from the Java version
