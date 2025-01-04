@@ -6,11 +6,13 @@ import scala.collection.immutable.ArraySeq
 
 /** A QR Code symbol, which is a type of two-dimension barcode.
   * Invented by Denso Wave and described in the ISO/IEC 18004 standard.
-  * <p>Instances of this class represent an immutable square grid of dark and light cells.
-  * The class provides static factory functions to create a QR Code from text or binary data.
+  *
+  * Instances of this class represent an immutable square grid of dark and light cells.
+  *
   * The class covers the QR Code Model 2 specification, supporting all versions (sizes)
-  * from 1 to 40, all 4 error correction levels, and 4 character encoding modes.</p>
-  * <p>Ways to create a QR Code object:</p>
+  * from 1 to 40, all 4 error correction levels, and 4 character encoding modes.
+  *
+  * Ways to create a QR Code object:
   * <ul>
   *   <li><p>High level: Take the payload data and call {@link QrCode#encodeText(CharSequence,Ecc)}
   *     or {@link QrCode#encodeBinary(byte[],Ecc)}.</p></li>
@@ -26,7 +28,6 @@ import scala.collection.immutable.ArraySeq
   * @param errorCorrectionLevel the error correction level to use
   * @param dataCodewords the bytes representing segments to encode (without ECC)
   * @param mask the mask pattern to use, which is either -1 for automatic choice or from 0 to 7 for fixed choice
-  * @see QrSegment
   */
 final case class QrCode(version: Int, errorCorrectionLevel: Ecc, dataCodewords: ArraySeq[Byte], mask: Option[Int]) {
   // Check arguments and initialize fields
@@ -77,6 +78,18 @@ final case class QrCode(version: Int, errorCorrectionLevel: Ecc, dataCodewords: 
   }
 }
 
+/** Ways to create a QR Code object:
+  *
+  * - High level: Take the payload data and call [[QrCode#encodeText(CharSequence,Ecc)]]
+  *               or [[QrCode#encodeBinary(byte[],Ecc)]].
+  * - Mid level: Custom-make the list of [[QrSegment]] segments and call
+  *              [[QrCode#encodeSegments(List,Ecc)]] or [[QrCode#encodeSegments(List,Ecc,int,int,int,boolean)}]]
+  * - Low level: Custom-make the array of data codeword bytes (including segment headers and
+  *              final padding, excluding error correction codewords), supply the appropriate version number,
+  *     and call the [[QrCode]] constructor.
+  *
+  * (Note that all ways require supplying the desired error correction level.)
+  */
 object QrCode {
 
   /** The minimum version number  (1) supported in the QR Code Model 2 standard. */
@@ -85,9 +98,10 @@ object QrCode {
   /** The maximum version number (40) supported in the QR Code Model 2 standard. */
   val MAX_VERSION: Int = 40
 
-  // Returns the number of data bits that can be stored in a QR Code of the given version number, after
-  // all function modules are excluded. This includes remainder bits, so it might not be a multiple of 8.
-  // The result is in the range [208, 29648]. This could be implemented as a 40-entry lookup table.
+  /** Returns the number of data bits that can be stored in a QR Code of the given version number, after
+    * all function modules are excluded. This includes remainder bits, so it might not be a multiple of 8.
+    * The result is in the range [208, 29648]. This could be implemented as a 40-entry lookup table.
+    */
   def getNumRawDataModules(version: Int): Int = {
     require(version >= MIN_VERSION && version <= MAX_VERSION, "Version number out of range")
     val numAlign: Int = version / 7 + 2
@@ -105,9 +119,10 @@ object QrCode {
     result
   }
 
-  // Returns an ascending list of positions of alignment patterns for this version number.
-  // Each position is in the range [0,177), and are used on both the x and y axes.
-  // This could be implemented as lookup table of 40 variable-length lists of unsigned bytes.
+  /** Returns an ascending list of positions of alignment patterns for this version number.
+    * Each position is in the range [0,177), and are used on both the x and y axes.
+    * This could be implemented as lookup table of 40 variable-length lists of unsigned bytes.
+    */
   def getAlignmentPatternPositions(version: Int, size: Int): Vector[Int] = {
     if (version == 1) Vector.empty[Int]
     else {
@@ -122,9 +137,9 @@ object QrCode {
     * Unicode code points (not UTF-16 code units) if the low error correction level is used. The smallest possible
     * QR Code version is automatically chosen for the output. The ECC level of the result may be higher than the
     * ecl argument if it can be done without increasing the version.
-    * @param text the text to be encoded (not {@code null}), which can be any Unicode string
-    * @param ecl the error correction level to use (not {@code null}) (boostable)
-    * @return a QR Code (not {@code null}) representing the text
+    * @param text the text to be encoded, which can be any Unicode string
+    * @param ecl the error correction level to use (boostable)
+    * @return a QR Code representing the text
     * @throws DataTooLongException if the text fails to fit in the
     * largest version QR Code at the ECL, which means it is too long
     */
@@ -137,9 +152,9 @@ object QrCode {
     * This function always encodes using the binary segment mode, not any text mode. The maximum number of
     * bytes allowed is 2953. The smallest possible QR Code version is automatically chosen for the output.
     * The ECC level of the result may be higher than the ecl argument if it can be done without increasing the version.
-    * @param data the binary data to encode (not {@code null})
-    * @param ecl the error correction level to use (not {@code null}) (boostable)
-    * @return a QR Code (not {@code null}) representing the data
+    * @param data the binary data to encode 
+    * @param ecl the error correction level to use (boostable)
+    * @return a QR Code representing the data
     * @throws DataTooLongException if the data fails to fit in the
     * largest version QR Code at the ECL, which means it is too long
     */
@@ -151,13 +166,13 @@ object QrCode {
   /** Returns a QR Code representing the specified segments at the specified error correction
     * level. The smallest possible QR Code version is automatically chosen for the output. The ECC level
     * of the result may be higher than the ecl argument if it can be done without increasing the version.
-    * <p>This function allows the user to create a custom sequence of segments that switches
+    * 
+    * This function allows the user to create a custom sequence of segments that switches
     * between modes (such as alphanumeric and byte) to encode text in less space.
-    * This is a mid-level API; the high-level API is {@link #encodeText(CharSequence,Ecc)}
-    * and {@link #encodeBinary(byte[],Ecc)}.</p>
+    *
     * @param segs the segments to encode
-    * @param ecl the error correction level to use (not {@code null}) (boostable)
-    * @return a QR Code (not {@code null}) representing the segments
+    * @param ecl the error correction level to use (boostable)
+    * @return a QR Code representing the segments
     * @throws DataTooLongException if the segments fail to fit in the
     * largest version QR Code at the ECL, which means they are too long
     */
@@ -167,21 +182,17 @@ object QrCode {
 
   /** Returns a QR Code representing the specified segments with the specified encoding parameters.
     * The smallest possible QR Code version within the specified range is automatically
-    * chosen for the output. Iff boostEcl is {@code true}, then the ECC level of the
+    * chosen for the output. Iff boostEcl is true, then the ECC level of the
     * result may be higher than the ecl argument if it can be done without increasing
     * the version. The mask number is either between 0 to 7 (inclusive) to force that
     * mask, or &#x2212;1 to automatically choose an appropriate mask (which may be slow).
-    * <p>This function allows the user to create a custom sequence of segments that switches
-    * between modes (such as alphanumeric and byte) to encode text in less space.
-    * This is a mid-level API; the high-level API is {@link #encodeText(CharSequence,Ecc)}
-    * and {@link #encodeBinary(byte[],Ecc)}.</p>
     * @param segs the segments to encode
-    * @param ecl the error correction level to use (not {@code null}) (boostable)
+    * @param ecl the error correction level to use (boostable)
     * @param minVersion the minimum allowed version of the QR Code (at least 1)
     * @param maxVersion the maximum allowed version of the QR Code (at most 40)
     * @param mask the mask number to use (between 0 and 7 (inclusive)), or None for automatic mask
     * @param boostEcl increases the ECC level as long as it doesn't increase the version number
-    * @return a QR Code (not {@code null}) representing the segments
+    * @return a QR Code representing the segments
     * @throws DataTooLongException if the segments fail to fit in
     * the maxVersion QR Code at the ECL, which means they are too long
     */

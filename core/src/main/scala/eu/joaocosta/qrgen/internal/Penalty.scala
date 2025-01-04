@@ -2,8 +2,10 @@ package eu.joaocosta.qrgen.internal
 
 import scala.annotation.tailrec
 
+/**
+  * Helpers to compute the penalty score in order to pick the best mask.
+  */
 object Penalty {
-  // For use in getPenaltyScore(), when evaluating which mask is best.
   private val PENALTY_N1: Int = 3
   private val PENALTY_N2: Int = 3
   private val PENALTY_N3: Int = 40
@@ -89,8 +91,13 @@ object Penalty {
     }
   }
 
-  // Calculates and returns the penalty score based on state of this QR Code's current modules.
-  // This is used by the automatic mask choice algorithm to find the mask pattern that yields the lowest score.
+  /**
+    * Calculates and returns the penalty score based on state of a QR Code's modules.
+    * This is used by the automatic mask choice algorithm to find the mask pattern that yields the lowest score.
+    *
+    * @param builder immutable view over the QR code that's being built
+    * @return penalty score
+    */
   def getPenaltyScore(builder: QrCodeBuilder.View): Int = {
     // Adjacent modules in row having same color, and finder-like patterns
     val rowPenalty = processRun(builder.size, (inner, outer) => builder.getModule(inner, outer))

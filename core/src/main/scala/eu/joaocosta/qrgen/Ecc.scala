@@ -14,6 +14,7 @@ enum Ecc(
 ) {
   // Must be declared in ascending order of error protection
   // so that the implicit ordinal() and values() work properly
+
   /** The QR Code can tolerate about  7% erroneous codewords. */
   case LOW
       extends Ecc(
@@ -54,17 +55,19 @@ enum Ecc(
           25, 34, 30, 32, 35, 37, 40, 42, 45, 48, 51, 54, 57, 60, 63, 66, 70, 74, 77, 81)
       )
 
-  // Returns the number of 8-bit data (i.e. not error correction) codewords contained in any
-  // QR Code of the given version number and error correction level, with remainder bits discarded.
-  // This stateless pure function could be implemented as a (40*4)-cell lookup table.
+  /** Returns the number of 8-bit data (i.e. not error correction) codewords contained in any
+    * QR Code of the given version number and error correction level, with remainder bits discarded.
+    * This stateless pure function could be implemented as a (40*4)-cell lookup table.
+    */
   def getNumDataCodewords(version: Int): Int = {
     QrCode.getNumRawDataModules(version) / 8
       - codewordsPerBlock(version)
       * numErrorCorrectionBlocks(version)
   }
 
-  // Returns a new byte string representing the given data with the appropriate error correction
-  // codewords appended to it, based on this object's version and error correction level.
+  /** Returns a new byte string representing the given data with the appropriate error correction
+    * codewords appended to it, based on this object's version and error correction level.
+    */
   def addEccAndInterleave(version: Int, data: Array[Byte]): Array[Byte] = {
     require(data.length == getNumDataCodewords(version), "Invalid data length")
 

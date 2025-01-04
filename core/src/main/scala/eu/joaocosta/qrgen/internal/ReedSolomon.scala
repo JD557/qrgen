@@ -1,8 +1,12 @@
 package eu.joaocosta.qrgen.internal
 
+/** Helper object containing Reed-Solomon operations.
+  */
 object ReedSolomon {
-  // Returns the product of the two given field elements modulo GF(2^8/0x11D). The arguments and result
-  // are unsigned 8-bit integers. This could be implemented as a lookup table of 256*256 entries of uint8.
+
+  /** Returns the product of the two given field elements modulo GF(2^8/0x11D).
+    *  The arguments and result are unsigned 8-bit integers.
+    */
   def reedSolomonMultiply(x: Int, y: Int): Int = {
     assert(x >> 8 == 0 && y >> 8 == 0)
     // Russian peasant multiplication
@@ -17,7 +21,7 @@ object ReedSolomon {
     z
   }
 
-  // Returns the Reed-Solomon error correction codeword for the given data and divisor polynomials.
+  /** Returns the Reed-Solomon error correction codeword for the given data and divisor polynomials. */
   def reedSolomonComputeRemainder(data: Array[Byte], divisor: Array[Byte]): Array[Byte] = {
     val result: Array[Byte] = Array.ofDim[Byte](divisor.length)
     data.foreach { b => // Polynomial division
@@ -31,8 +35,7 @@ object ReedSolomon {
     result
   }
 
-  // Returns a Reed-Solomon ECC generator polynomial for the given degree. This could be
-  // implemented as a lookup table over all possible parameter values, instead of as an algorithm.
+  /** Returns a Reed-Solomon ECC generator polynomial for the given degree. */
   def reedSolomonComputeDivisor(degree: Int): Array[Byte] = {
     require(degree >= 1 && degree <= 255, "Degree out of range")
     // Polynomial coefficients are stored from highest to lowest power, excluding the leading term which is always 1.

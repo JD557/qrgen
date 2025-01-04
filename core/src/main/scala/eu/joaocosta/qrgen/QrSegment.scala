@@ -3,20 +3,19 @@ package eu.joaocosta.qrgen
 import java.nio.charset.StandardCharsets
 import java.util.regex.Pattern
 
-/** A segment of character/binary/control data in a QR Code symbol.
-  * Instances of this class are immutable.
-  * <p>The mid-level way to create a segment is to take the payload data and call a
-  * static factory function such as {@link QrSegment#makeNumeric(CharSequence)}. The low-level
-  * way to create a segment is to custom-make the bit buffer and call the {@link
-  * QrSegment#QrSegment(Mode,int,BitBuffer) constructor} with appropriate values.</p>
-  * <p>This segment class imposes no length restrictions, but QR Codes have restrictions.
-  * Even in the most favorable conditions, a QR Code can only hold 7089 characters of data.
-  * Any segment longer than this is meaningless for the purpose of generating QR Codes.
-  * This class can represent kanji mode segments, but provides no help in encoding them
-  * - see {@link QrSegmentAdvanced} for full kanji support.</p>
-  */
+/** A segment of character/binary/control data in a QR Code symbol. */
 final case class QrSegment(mode: QrSegment.Mode, numChars: Int, data: BitBuffer.Immutable)
 
+/** The mid-level way to create a segment is to take the payload data and call a
+  * static factory function such as [[QrSegment#makeNumeric(CharSequence)]].
+  *
+  * The low-level way to create a segment is to custom-make the bit buffer and call the
+  * segment contructor  with appropriate values.
+  *
+  * This segment class imposes no length restrictions, but QR Codes have restrictions.
+  * Even in the most favorable conditions, a QR Code can only hold 7089 characters of data.
+  * Any segment longer than this is meaningless for the purpose of generating QR Codes.
+  */
 object QrSegment {
 
   // Describes precisely all strings that are encodable in numeric mode.
@@ -37,6 +36,7 @@ object QrSegment {
     ALPHANUMERIC_REGEX.matcher(text).matches()
   }
 
+  /** Qr Segment Mode. */
   enum Mode(val modeBits: Int, val numBitsCharCount: Vector[Int]) {
     case NUMERIC      extends Mode(0x1, Vector(10, 12, 14))
     case ALPHANUMERIC extends Mode(0x2, Vector(9, 11, 13))
@@ -44,8 +44,9 @@ object QrSegment {
     case KANJI        extends Mode(0x8, Vector(8, 10, 12))
     case ECI          extends Mode(0x7, Vector(0, 0, 0))
 
-    // Returns the bit width of the character count field for a segment in this mode
-    // in a QR Code at the given version number. The result is in the range [0, 16].
+    /** Returns the bit width of the character count field for a segment in this mode
+      *     in a QR Code at the given version number. The result is in the range [0, 16].
+      */
     def numCharCountBits(ver: Int): Int = {
       assert(QrCode.MIN_VERSION <= ver && ver <= QrCode.MAX_VERSION)
       numBitsCharCount((ver + 7) / 17)
@@ -54,10 +55,8 @@ object QrSegment {
 
   /** Returns a segment representing the specified binary data
     * encoded in byte mode. All input byte arrays are acceptable.
-    * <p>Any text string can be converted to UTF-8 bytes ({@code
-    * s.getBytes(StandardCharsets.UTF_8)}) and encoded as a byte mode segment.</p>
-    * @param data the binary data (not {@code null})
-    * @return a segment (not {@code null}) containing the data
+    * @param data the binary data
+    * @return a segment containing the data
     */
   def makeBytes(data: Seq[Byte]): QrSegment = {
     val bb = new BitBuffer.Mutable()
@@ -66,8 +65,8 @@ object QrSegment {
   }
 
   /** Returns a segment representing the specified string of decimal digits encoded in numeric mode.
-    * @param digits the text (not {@code null}), with only digits from 0 to 9 allowed
-    * @return a segment (not {@code null}) containing the text
+    * @param digits the text, with only digits from 0 to 9 allowed
+    * @return a segment containing the text
     */
   def makeNumeric(digits: CharSequence): QrSegment = {
     require(isNumeric(digits), "String contains non-numeric characters")
@@ -82,8 +81,8 @@ object QrSegment {
   /** Returns a segment representing the specified text string encoded in alphanumeric mode.
     * The characters allowed are: 0 to 9, A to Z (uppercase only), space,
     * dollar, percent, asterisk, plus, hyphen, period, slash, colon.
-    * @param text the text (not {@code null}), with only certain characters allowed
-    * @return a segment (not {@code null}) containing the text
+    * @param text the text, with only certain characters allowed
+    * @return a segment containing the text
     */
   def makeAlphanumeric(text: CharSequence): QrSegment = {
     require(isAlphanumeric(text), "String contains unencodable characters in alphanumeric mode")
@@ -104,26 +103,23 @@ object QrSegment {
   /** Returns a list of zero or more segments to represent the specified Unicode text string.
     * The result may use various segment modes and switch modes to optimize the length of the bit stream.
     * @param text the text to be encoded, which can be any Unicode string
-    * @return a new mutable list (not {@code null}) of segments (not {@code null}) containing the text
+    * @return a new list of segments containing the text
     */
   def makeSegments(text: CharSequence): List[QrSegment] = {
-    // Select the most efficient segment encoding automatically
-    val result = List.newBuilder[QrSegment]
-    if (text.equals("")) {} // Leave result empty
+    if (text.equals("")) List.empty // Leave result empty
     else if (isNumeric(text))
-      result.addOne(makeNumeric(text))
+      List(makeNumeric(text))
     else if (isAlphanumeric(text))
-      result.addOne(makeAlphanumeric(text))
+      List(makeAlphanumeric(text))
     else
-      result.addOne(makeBytes(text.toString().getBytes(StandardCharsets.UTF_8).toIndexedSeq))
-    result.result()
+      List(makeBytes(text.toString().getBytes(StandardCharsets.UTF_8).toIndexedSeq))
   }
 
   /** Returns a segment representing an Extended Channel Interpretation
     * (ECI) designator with the specified assignment value.
     * @param assignVal the ECI assignment number (see the AIM ECI specification)
-    * @return a segment (not {@code null}) containing the data
-    * @throws IllegalArgumentException if the value is outside the range [0, 10<sup>6</sup>)
+    * @return a segment containing the data
+    * @throws IllegalArgumentException if the value is outside the range [0, 10^6)
     */
   def makeEci(assignVal: Int): QrSegment = {
     val bb = new BitBuffer.Mutable()
@@ -142,9 +138,10 @@ object QrSegment {
     QrSegment(Mode.ECI, 0, bb.toImmutable)
   }
 
-  // Calculates the number of bits needed to encode the given segments at the given version.
-  // Returns a non-negative number if successful. Otherwise returns -1 if a segment has too
-  // many characters to fit its length field, or the total bits exceeds Integer.MAX_VALUE.
+  /** Calculates the number of bits needed to encode the given segments at the given version.
+    * Returns a non-negative number if successful. Otherwise returns -1 if a segment has too
+    * many characters to fit its length field, or the total bits exceeds Integer.MAX_VALUE.
+    */
   def getTotalBits(segs: Seq[QrSegment], version: Int): Int = {
     segs
       .foldLeft(0L) { case (result, seg) =>

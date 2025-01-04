@@ -4,46 +4,55 @@ import eu.joaocosta.qrgen.Ecc
 import eu.joaocosta.qrgen.QrCode
 import java.util.Arrays
 
-/** Helper class to build QR Codes */
+/** Helper class to build QR Codes.
+  * This is only meant for internal use. Library users should use the helpers defined in [[eu.joaocosta.qrgen.QrCode]] instead.
+  *
+  * @param size width/height of the generated QR Code.
+  */
 final class QrCodeBuilder(val size: Int) extends QrCodeBuilder.View {
   // The modules of this QR Code (false = light, true = dark).
   private val modules: Array[Array[Boolean]] = Array.ofDim[Boolean](size, size)
   // Indicates function modules that are not subjected to masking
   private val isFunction: Array[Array[Boolean]] = Array.ofDim[Boolean](size, size)
 
+  /** Number of dark points in the QR Code.
+    */
   def darkPoints: Int = modules.view.map(_.count(identity)).sum
 
+  /** Returns the current status of a module (true if dark, false otherwise)
+    */
   def getModule(x: Int, y: Int): Boolean =
     0 <= x && x < size && 0 <= y && y < size && modules(y)(x)
 
+  /** Checks if a module is a function module.
+    */
   def getFunctionModule(x: Int, y: Int): Boolean = {
     0 <= x && x < size && 0 <= y && y < size && isFunction(y)(x)
   }
 
-  /** Sets the value at a certain position */
+  /** Sets the value at a certain position (true = black, false = white). */
   def setModule(x: Int, y: Int, isDark: Boolean): Unit =
     modules(y)(x) = isDark
 
-  /** Updates the value at a certain position */
+  /** Updates the value at a certain position (true = black, false = white). */
   def updateModule(x: Int, y: Int, f: Boolean => Boolean): Unit =
     setModule(x, y, f(getModule(x, y)))
 
-  /** Sets the value at a certain position and marks it as a funciton module */
+  /** Sets the value at a certain position and marks it as a funciton module (true = black, false = white). */
   def setFunctionModule(x: Int, y: Int, isDark: Boolean): Unit = {
     modules(y)(x) = isDark
     isFunction(y)(x) = true
   }
 
-  /** Returns the final result */
+  /** Returns the final result. */
   def result(): Array[Array[Boolean]] = modules.map(_.clone())
 
-  // ---- Drawing helpers ----
-
-  // XORs the codeword modules in this QR Code with the given mask pattern.
-  // The function modules must be marked and the codeword bits must be drawn
-  // before masking. Due to the arithmetic of XOR, calling applyMask with
-  // the same mask value a second time will undo the mask. A final well-formed
-  // QR Code needs exactly one (not zero, two, etc.) mask applied.
+  /** XORs the codeword modules in this QR Code with the given mask pattern.
+    * The function modules must be marked and the codeword bits must be drawn
+    * before masking. Due to the arithmetic of XOR, calling applyMask with
+    * the same mask value a second time will undo the mask. A final well-formed
+    * QR Code needs exactly one (not zero, two, etc.) mask applied.
+    */
   def applyMask(mask: Int): Unit = {
     require(mask >= 0 && mask <= 7, "Mask value out of range")
     for {
@@ -67,8 +76,9 @@ final class QrCodeBuilder(val size: Int) extends QrCodeBuilder.View {
     }
   }
 
-  // Draws two copies of the format bits (with its own error correction code)
-  // based on the given mask and this object's error correction level field.
+  /** Draws two copies of the format bits (with its own error correction code)
+    * based on the given mask and this object's error correction level field.
+    */
   def drawFormatBits(errorCorrectionLevel: Ecc, mask: Int): Unit = {
     // Calculate error correction code and pack bits
     val data: Int = errorCorrectionLevel.formatBits << 3 | mask // errCorrLvl is uint2, mask is uint3
@@ -90,8 +100,9 @@ final class QrCodeBuilder(val size: Int) extends QrCodeBuilder.View {
     setFunctionModule(8, size - 8, true) // Always dark
   }
 
-  // Draws two copies of the version bits (with its own error correction code),
-  // based on this object's version field, iff 7 <= version <= 40.
+  /** Draws two copies of the version bits (with its own error correction code),
+    * based on this object's version field, iff 7 <= version <= 40.
+    */
   def drawVersion(version: Int): Unit = {
     if (version >= 7) {
       // Calculate error correction code and pack bits
@@ -135,7 +146,7 @@ final class QrCodeBuilder(val size: Int) extends QrCodeBuilder.View {
     } setFunctionModule(x + dx, y + dy, Math.max(Math.abs(dx), Math.abs(dy)) != 1)
   }
 
-  // Reads this object's version field, and draws and marks all function modules.
+  /** Reads this object's version field, and draws and marks all function modules. */
   def drawFunctionPatterns(version: Int, errorCorrectionLevel: Ecc): Unit = {
     // Draw horizontal and vertical timing patterns
     (0 until size).foreach { i =>
@@ -163,8 +174,9 @@ final class QrCodeBuilder(val size: Int) extends QrCodeBuilder.View {
     drawVersion(version)
   }
 
-  // Draws the given sequence of 8-bit codewords (data and error correction) onto the entire
-  // data area of this QR Code. Function modules need to be marked off before this is called.
+  /** Draws the given sequence of 8-bit codewords (data and error correction) onto the entire
+    * data area of this QR Code. Function modules need to be marked off before this is called.
+    */
   def drawCodewords(version: Int, data: Array[Byte]): Unit = {
     if (data.length != QrCode.getNumRawDataModules(version) / 8)
       throw new IllegalArgumentException()
@@ -195,7 +207,11 @@ final class QrCodeBuilder(val size: Int) extends QrCodeBuilder.View {
 }
 
 object QrCodeBuilder {
-  // Read-only view over a QR Code builder
+
+  /** Read-only view over a QR Code builder.
+    *
+    *  This does not clone the internal builder, it simply does not provide any write operation.
+    */
   trait View {
     def size: Int
 
