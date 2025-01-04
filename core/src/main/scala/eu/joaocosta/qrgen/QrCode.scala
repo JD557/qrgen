@@ -14,7 +14,7 @@ import scala.collection.immutable.ArraySeq
   *
   * Ways to create a QR Code object:
   * <ul>
-  *   <li><p>High level: Take the payload data and call {@link QrCode#encodeText(CharSequence,Ecc)}
+  *   <li><p>High level: Take the payload data and call {@link QrCode#encodeText(String,Ecc)}
   *     or {@link QrCode#encodeBinary(byte[],Ecc)}.</p></li>
   *   <li><p>Mid level: Custom-make the list of {@link QrSegment segments}
   *     and call {@link QrCode#encodeSegments(List,Ecc)} or
@@ -80,7 +80,7 @@ final case class QrCode(version: Int, errorCorrectionLevel: Ecc, dataCodewords: 
 
 /** Ways to create a QR Code object:
   *
-  * - High level: Take the payload data and call [[QrCode#encodeText(CharSequence,Ecc)]]
+  * - High level: Take the payload data and call [[QrCode#encodeText(String,Ecc)]]
   *               or [[QrCode#encodeBinary(byte[],Ecc)]].
   * - Mid level: Custom-make the list of [[QrSegment]] segments and call
   *              [[QrCode#encodeSegments(List,Ecc)]] or [[QrCode#encodeSegments(List,Ecc,int,int,int,boolean)}]]
@@ -143,9 +143,8 @@ object QrCode {
     * @throws DataTooLongException if the text fails to fit in the
     * largest version QR Code at the ECL, which means it is too long
     */
-  def encodeText(text: CharSequence, ecl: Ecc): QrCode = {
-    val segs: List[QrSegment] = QrSegment.makeSegments(text)
-    encodeSegments(segs, ecl)
+  def encodeText(text: String, ecl: Ecc): QrCode = {
+    encodeSegments(QrSegment.makeSegments(text), ecl)
   }
 
   /** Returns a QR Code representing the specified binary data at the specified error correction level.
@@ -159,8 +158,7 @@ object QrCode {
     * largest version QR Code at the ECL, which means it is too long
     */
   def encodeBinary(data: Seq[Byte], ecl: Ecc): QrCode = {
-    val seg: QrSegment = QrSegment.makeBytes(data)
-    encodeSegments(List(seg), ecl)
+    encodeSegments(List(QrSegment.makeBytes(data)), ecl)
   }
 
   /** Returns a QR Code representing the specified segments at the specified error correction

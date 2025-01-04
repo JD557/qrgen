@@ -7,7 +7,7 @@ import java.util.regex.Pattern
 final case class QrSegment(mode: QrSegment.Mode, numChars: Int, data: BitBuffer.Immutable)
 
 /** The mid-level way to create a segment is to take the payload data and call a
-  * static factory function such as [[QrSegment#makeNumeric(CharSequence)]].
+  * static factory function such as [[QrSegment#makeNumeric(String)]].
   *
   * The low-level way to create a segment is to custom-make the bit buffer and call the
   * segment contructor  with appropriate values.
@@ -26,13 +26,14 @@ object QrSegment {
 
   // The set of all legal characters in alphanumeric mode, where
   // each character value maps to the index in the string.
-  private val ALPHANUMERIC_CHARSET: String = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:"
+  private val ALPHANUMERIC_CHARSET: Map[Char, Int] =
+    "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:".zipWithIndex.toMap
 
-  private def isNumeric(text: CharSequence): Boolean = {
+  private def isNumeric(text: String): Boolean = {
     NUMERIC_REGEX.matcher(text).matches()
   }
 
-  private def isAlphanumeric(text: CharSequence): Boolean = {
+  private def isAlphanumeric(text: String): Boolean = {
     ALPHANUMERIC_REGEX.matcher(text).matches()
   }
 
@@ -68,7 +69,7 @@ object QrSegment {
     * @param digits the text, with only digits from 0 to 9 allowed
     * @return a segment containing the text
     */
-  def makeNumeric(digits: CharSequence): QrSegment = {
+  def makeNumeric(digits: String): QrSegment = {
     require(isNumeric(digits), "String contains non-numeric characters")
 
     val bb = new BitBuffer.Mutable()
@@ -84,19 +85,13 @@ object QrSegment {
     * @param text the text, with only certain characters allowed
     * @return a segment containing the text
     */
-  def makeAlphanumeric(text: CharSequence): QrSegment = {
+  def makeAlphanumeric(text: String): QrSegment = {
     require(isAlphanumeric(text), "String contains unencodable characters in alphanumeric mode")
 
     val bb = new BitBuffer.Mutable()
-    var i  = 0
-    while (i <= text.length() - 2) { // Process groups of 2
-      var temp: Int = ALPHANUMERIC_CHARSET.indexOf(text.charAt(i)) * 45
-      temp += ALPHANUMERIC_CHARSET.indexOf(text.charAt(i + 1))
-      bb.appendBits(temp, 11)
-      i += 2
+    text.foreach { char =>
+      bb.appendBits(ALPHANUMERIC_CHARSET.apply(char), 6)
     }
-    if (i < text.length()) // 1 character remaining
-      bb.appendBits(ALPHANUMERIC_CHARSET.indexOf(text.charAt(i)), 6)
     QrSegment(Mode.ALPHANUMERIC, text.length(), bb.toImmutable)
   }
 
@@ -105,7 +100,7 @@ object QrSegment {
     * @param text the text to be encoded, which can be any Unicode string
     * @return a new list of segments containing the text
     */
-  def makeSegments(text: CharSequence): List[QrSegment] = {
+  def makeSegments(text: String): List[QrSegment] = {
     if (text.equals("")) List.empty // Leave result empty
     else if (isNumeric(text))
       List(makeNumeric(text))
