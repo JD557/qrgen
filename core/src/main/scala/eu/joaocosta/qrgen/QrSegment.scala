@@ -2,6 +2,7 @@ package eu.joaocosta.qrgen
 
 import java.nio.charset.StandardCharsets
 import java.util.regex.Pattern
+import scala.annotation.tailrec
 
 /** A segment of character/binary/control data in a QR Code symbol. */
 final case class QrSegment(mode: QrSegment.Mode, numChars: Int, data: BitBuffer.Immutable)
@@ -134,23 +135,23 @@ object QrSegment {
   }
 
   /** Calculates the number of bits needed to encode the given segments at the given version.
-    * Returns a non-negative number if successful. Otherwise returns -1 if a segment has too
+    * Returns some non-negative number if successful. Otherwise returns None if a segment has too
     * many characters to fit its length field, or the total bits exceeds Integer.MAX_VALUE.
     */
-  def getTotalBits(segs: Seq[QrSegment], version: Int): Int = {
-    segs
-      .foldLeft(0L) { case (result, seg) =>
-        if (result < 0) result
+  def getTotalBits(segs: Seq[QrSegment], version: Int): Option[Int] = {
+    @tailrec
+    def aux(_segs: Seq[QrSegment] = segs, result: Int = 0): Option[Int] = _segs match {
+      case Nil => Some(result)
+      case seg :: xs =>
+        val ccbits = seg.mode.numCharCountBits(version)
+        if (seg.numChars >= (1 << ccbits)) None // The segment's length doesn't fit the field's bit width
         else {
-          val ccbits = seg.mode.numCharCountBits(version)
-          if (seg.numChars >= (1 << ccbits)) -1 // The segment's length doesn't fit the field's bit width
-          else {
-            val newResult = result + 4 + ccbits + seg.data.size
-            if (newResult > Integer.MAX_VALUE) -1 // The sum will overflow an int type
-            else newResult
-          }
+          val newResult = result + 4 + ccbits + seg.data.size
+          if (newResult > Integer.MAX_VALUE) None // The sum will overflow an int type
+          else (aux(xs, newResult))
         }
-      }
-      .toInt
+
+    }
+    aux()
   }
 }

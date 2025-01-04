@@ -213,14 +213,15 @@ object QrCode {
     @tailrec
     def findVersion(version: Int = minVersion): (Int, Int) = {
       val dataCapacityBits = ecl.getNumDataCodewords(version) * 8 // Number of data bits available
-      val newDataUsedBits  = QrSegment.getTotalBits(segs, version)
-      if (newDataUsedBits != -1 && newDataUsedBits <= dataCapacityBits)
-        (version, newDataUsedBits)      // This version number is found to be suitable
-      else if (version >= maxVersion) { // All versions in the range could not fit the given data
-        if (newDataUsedBits != -1)
+      QrSegment.getTotalBits(segs, version) match {
+        case Some(newDataUsedBits) if newDataUsedBits <= dataCapacityBits =>
+          (version, newDataUsedBits)
+        case Some(newDataUsedBits) if version >= maxVersion =>
           throw new DataTooLongException(s"Data length = $newDataUsedBits bits, Max capacity = $dataCapacityBits bits")
-        else throw new DataTooLongException("Segment too long")
-      } else findVersion(version + 1)
+        case None if version >= maxVersion =>
+          throw new DataTooLongException("Segment too long")
+        case _ => findVersion(version + 1)
+      }
     }
     val (version, dataUsedBits) = findVersion()
 
