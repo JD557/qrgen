@@ -30,12 +30,12 @@ import scala.annotation.tailrec
   * @param dataCodewords the bytes representing segments to encode (without ECC)
   * @param mask the mask pattern to use, which is either -1 for automatic choice or from 0 to 7 for fixed choice
   */
-final case class QrCode(version: Int, errorCorrectionLevel: Ecc, dataCodewords: ArraySeq[Byte], mask: Option[Int]) {
+final case class QrCode(version: Int, errorCorrectionLevel: Ecc, dataCodewords: ArraySeq[Byte], mask: Option[Int]) extends IndexedSeq[IndexedSeq[Boolean]] {
   // Check arguments and initialize fields
   require(version >= QrCode.MIN_VERSION && version <= QrCode.MAX_VERSION, "Version value out of range")
   require(mask.forall(x => x >= 0 && x <= 7), "Mask value out of range")
 
-  val size = version * 4 + 17
+  val length = version * 4 + 17
 
   val (modules, bestMask) = {
     // Private grids of modules/pixels, with dimensions of size*size
@@ -66,17 +66,19 @@ final case class QrCode(version: Int, errorCorrectionLevel: Ecc, dataCodewords: 
     (builder.result(), _bestMask)
   }
 
-  /** Returns the color of the module (pixel) at the specified coordinates, which is {@code false}
-    * for light or {@code true} for dark. The top left corner has the coordinates (x=0, y=0).
-    * If the specified coordinates are out of bounds, then {@code false} (light) is returned.
-    * @param x the x coordinate, where 0 is the left edge and size&#x2212;1 is the right edge
-    * @param y the y coordinate, where 0 is the top edge and size&#x2212;1 is the bottom edge
-    * @return {@code true} if the coordinates are in bounds and the module
-    * at that location is dark, or {@code false} (light) otherwise
+  /** Returns the color of the module (pixel) at the specified coordinates, which is false
+    * for light or true for dark. The top left corner has the coordinates (x=0, y=0).
+    * If the specified coordinates are out of bounds, then false (light) is returned.
+    * @param x the x coordinate, where 0 is the left edge and size - 1 is the right edge
+    * @param y the y coordinate, where 0 is the top edge and size - 1 is the bottom edge
+    * @return true if the coordinates are in bounds and the module
+    * at that location is dark, or false (light) otherwise
     */
   def getModule(x: Int, y: Int): Boolean = {
     0 <= x && x < size && 0 <= y && y < size && modules(y)(x)
   }
+
+  def apply(y: Int): IndexedSeq[Boolean] = modules(y)
 }
 
 /** Ways to create a QR Code object:

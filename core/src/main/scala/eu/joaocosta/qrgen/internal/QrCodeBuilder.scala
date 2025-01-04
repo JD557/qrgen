@@ -45,7 +45,7 @@ final class QrCodeBuilder(val size: Int) extends QrCodeBuilder.View {
   }
 
   /** Returns the final result. */
-  def result(): Array[Array[Boolean]] = modules.map(_.clone())
+  def result(): IndexedSeq[IndexedSeq[Boolean]] = modules.iterator.map(_.toVector).toVector
 
   /** XORs the codeword modules in this QR Code with the given mask pattern.
     * The function modules must be marked and the codeword bits must be drawn
