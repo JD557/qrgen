@@ -4,7 +4,7 @@ ThisBuild / organization := "eu.joaocosta"
 ThisBuild / publishTo    := sonatypePublishToBundle.value
 ThisBuild / scalaVersion := "3.3.4"
 ThisBuild / licenses     := Seq("MIT License" -> url("http://opensource.org/licenses/MIT"))
-ThisBuild / homepage     := Some(url("https://github.com/JD557/qegen"))
+ThisBuild / homepage     := Some(url("https://github.com/JD557/qrgen"))
 ThisBuild / scmInfo := Some(
   ScmInfo(
     url("https://github.com/JD557/qrgen"),
