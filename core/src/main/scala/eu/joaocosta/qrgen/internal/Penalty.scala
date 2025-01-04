@@ -1,4 +1,4 @@
-package eu.joaocosta.qrgen
+package eu.joaocosta.qrgen.internal
 
 import scala.annotation.tailrec
 

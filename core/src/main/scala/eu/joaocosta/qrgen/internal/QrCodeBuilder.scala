@@ -1,7 +1,8 @@
-package eu.joaocosta.qrgen
+package eu.joaocosta.qrgen.internal
 
+import eu.joaocosta.qrgen.Ecc
+import eu.joaocosta.qrgen.QrCode
 import java.util.Arrays
-import eu.joaocosta.qrgen.Helpers.*
 
 /** Helper class to build QR Codes */
 final class QrCodeBuilder(val size: Int) extends QrCodeBuilder.View {
@@ -77,15 +78,15 @@ final class QrCodeBuilder(val size: Int) extends QrCodeBuilder.View {
     assert(bits >>> 15 == 0)
 
     // Draw first copy
-    (0 until 6).foreach { i => setFunctionModule(8, i, getBit(bits, i)) }
-    setFunctionModule(8, 7, getBit(bits, 6))
-    setFunctionModule(8, 8, getBit(bits, 7))
-    setFunctionModule(7, 8, getBit(bits, 8))
-    (9 until 15).foreach { i => setFunctionModule(14 - i, 8, getBit(bits, i)) }
+    (0 until 6).foreach { i => setFunctionModule(8, i, Helpers.getBit(bits, i)) }
+    setFunctionModule(8, 7, Helpers.getBit(bits, 6))
+    setFunctionModule(8, 8, Helpers.getBit(bits, 7))
+    setFunctionModule(7, 8, Helpers.getBit(bits, 8))
+    (9 until 15).foreach { i => setFunctionModule(14 - i, 8, Helpers.getBit(bits, i)) }
 
     // Draw second copy
-    (0 until 8).foreach { i => setFunctionModule(size - 1 - i, 8, getBit(bits, i)) }
-    (8 until 15).foreach { i => setFunctionModule(8, size - 15 + i, getBit(bits, i)) }
+    (0 until 8).foreach { i => setFunctionModule(size - 1 - i, 8, Helpers.getBit(bits, i)) }
+    (8 until 15).foreach { i => setFunctionModule(8, size - 15 + i, Helpers.getBit(bits, i)) }
     setFunctionModule(8, size - 8, true) // Always dark
   }
 
@@ -103,7 +104,7 @@ final class QrCodeBuilder(val size: Int) extends QrCodeBuilder.View {
 
       // Draw two copies
       (0 until 18).foreach { i =>
-        val bit: Boolean = getBit(bits, i)
+        val bit: Boolean = Helpers.getBit(bits, i)
         val a: Int       = size - 11 + i % 3
         val b: Int       = i / 3
         setFunctionModule(a, b, bit)
@@ -181,7 +182,7 @@ final class QrCodeBuilder(val size: Int) extends QrCodeBuilder.View {
         val upward: Boolean = ((right + 1) & 2) == 0
         val y: Int          = if (upward) (size - 1 - vert) else vert // Actual y coordinate
         if (!getFunctionModule(x, y) && i < data.length * 8) {
-          setModule(x, y, getBit(data(i >>> 3), 7 - (i & 7)))
+          setModule(x, y, Helpers.getBit(data(i >>> 3), 7 - (i & 7)))
           i = i + 1
         }
         // If this QR Code has any remainder bits (0 to 7), they were assigned as

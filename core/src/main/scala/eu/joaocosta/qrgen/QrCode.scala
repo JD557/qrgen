@@ -1,7 +1,7 @@
 package eu.joaocosta.qrgen
 
 import java.util.Arrays
-import eu.joaocosta.qrgen.Helpers.*
+import eu.joaocosta.qrgen.internal.*
 import scala.collection.immutable.ArraySeq
 
 /** A QR Code symbol, which is a type of two-dimension barcode.

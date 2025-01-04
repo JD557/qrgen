@@ -1,4 +1,4 @@
-package eu.joaocosta.qrgen
+package eu.joaocosta.qrgen.internal
 
 object ReedSolomon {
   // Returns the product of the two given field elements modulo GF(2^8/0x11D). The arguments and result
