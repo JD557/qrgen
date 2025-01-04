@@ -11,6 +11,10 @@ class BaselineSpec extends ScalaCheckSuite {
       Vector.tabulate(a.size, a.size)((x, y) => a.getModule(x, y)) ==
         Vector.tabulate(b.size, b.size)((x, y) => b.getModule(x, y))
     )
+    assert(
+      a.toVector ==
+        Vector.tabulate(b.size, b.size)((y, x) => b.getModule(x, y))
+    )
   }
 
   property("QR Codes generated from text match the reference implementation") {
