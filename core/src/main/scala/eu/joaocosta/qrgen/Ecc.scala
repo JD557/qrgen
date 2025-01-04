@@ -69,30 +69,24 @@ object Ecc {
     val shortBlockLen: Int  = rawCodewords / numBlocks
 
     // Split data into blocks and append ECC to each block
-    val blocks: Array[Array[Byte]] = Array.ofDim[Array[Byte]](numBlocks)
-    val rsDiv: Array[Byte]         = ReedSolomon.reedSolomonComputeDivisor(blockEccLen)
-    var k                          = 0
-    (0 until numBlocks).foreach { i =>
+    val rsDiv: Array[Byte] = ReedSolomon.reedSolomonComputeDivisor(blockEccLen)
+    val blocks = (0 until numBlocks).iterator.map { i =>
+      val longBlocks = math.max(0, i - numShortBlocks)
+      val k          = i * (shortBlockLen - blockEccLen) + longBlocks
       val dat: Array[Byte] =
-        Arrays.copyOfRange(data, k, k + shortBlockLen - blockEccLen + (if (i < numShortBlocks) 0 else 1))
-      k = k + dat.length
+        Arrays.copyOfRange(data, k, k + (shortBlockLen - blockEccLen) + (if (i < numShortBlocks) 0 else 1))
       val block: Array[Byte] = Arrays.copyOf(dat, shortBlockLen + 1)
       val ecc: Array[Byte]   = ReedSolomon.reedSolomonComputeRemainder(dat, rsDiv)
       System.arraycopy(ecc, 0, block, block.length - blockEccLen, ecc.length)
-      blocks(i) = block
-    }
+      block
+    }.toArray
+
     // Interleave (not concatenate) the bytes from every block into a single sequence
-    val result: Array[Byte] = Array.ofDim[Byte](rawCodewords)
-    k = 0
-    for {
-      i <- (0 until blocks(0).length)
+    (for {
+      i <- (0 until (shortBlockLen + 1)).iterator
       j <- (0 until blocks.length)
       // Skip the padding byte in short blocks
       if (i != shortBlockLen - blockEccLen || j >= numShortBlocks)
-    } {
-      result(k) = blocks(j)(i)
-      k = k + 1
-    }
-    result
+    } yield blocks(j)(i)).toArray
   }
 }
