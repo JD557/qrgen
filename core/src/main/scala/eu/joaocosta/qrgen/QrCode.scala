@@ -3,6 +3,7 @@ package eu.joaocosta.qrgen
 import java.util.Arrays
 import eu.joaocosta.qrgen.internal.*
 import scala.collection.immutable.ArraySeq
+import scala.annotation.tailrec
 
 /** A QR Code symbol, which is a type of two-dimension barcode.
   * Invented by Denso Wave and described in the ISO/IEC 18004 standard.
@@ -151,7 +152,7 @@ object QrCode {
     * This function always encodes using the binary segment mode, not any text mode. The maximum number of
     * bytes allowed is 2953. The smallest possible QR Code version is automatically chosen for the output.
     * The ECC level of the result may be higher than the ecl argument if it can be done without increasing the version.
-    * @param data the binary data to encode 
+    * @param data the binary data to encode
     * @param ecl the error correction level to use (boostable)
     * @return a QR Code representing the data
     * @throws DataTooLongException if the data fails to fit in the
@@ -164,7 +165,7 @@ object QrCode {
   /** Returns a QR Code representing the specified segments at the specified error correction
     * level. The smallest possible QR Code version is automatically chosen for the output. The ECC level
     * of the result may be higher than the ecl argument if it can be done without increasing the version.
-    * 
+    *
     * This function allows the user to create a custom sequence of segments that switches
     * between modes (such as alphanumeric and byte) to encode text in less space.
     *
@@ -207,21 +208,19 @@ object QrCode {
     require(mask.forall(x => x >= 0 && x <= 7), "Invalid mask")
 
     // Find the minimal version number to use
-    var version      = minVersion
-    var dataUsedBits = 0
-    var suitable     = false
-    while (!suitable) {
+    @tailrec
+    def findVersion(version: Int = minVersion): (Int, Int) = {
       val dataCapacityBits = ecl.getNumDataCodewords(version) * 8 // Number of data bits available
-      dataUsedBits = QrSegment.getTotalBits(segs, version)
-      if (dataUsedBits != -1 && dataUsedBits <= dataCapacityBits)
-        suitable = true                 // This version number is found to be suitable
+      val newDataUsedBits  = QrSegment.getTotalBits(segs, version)
+      if (newDataUsedBits != -1 && newDataUsedBits <= dataCapacityBits)
+        (version, newDataUsedBits)      // This version number is found to be suitable
       else if (version >= maxVersion) { // All versions in the range could not fit the given data
-        if (dataUsedBits != -1)
-          throw new DataTooLongException(s"Data length = $dataUsedBits bits, Max capacity = $dataCapacityBits bits")
+        if (newDataUsedBits != -1)
+          throw new DataTooLongException(s"Data length = $newDataUsedBits bits, Max capacity = $dataCapacityBits bits")
         else throw new DataTooLongException("Segment too long")
-      } else version = version + 1
+      } else findVersion(version + 1)
     }
-    assert(dataUsedBits != -1)
+    val (version, dataUsedBits) = findVersion()
 
     // Increase the error correction level while the data still fits in the current version number
     val boostedEcl = Ecc.values.foldLeft(ecl) { (oldEcl, newEcl) => // From low to high
