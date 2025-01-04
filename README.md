@@ -1,4 +1,4 @@
-# QR Gen
+# QRgen
 
 An opinionated port of https://github.com/nayuki/QR-Code-generator to Scala.
 

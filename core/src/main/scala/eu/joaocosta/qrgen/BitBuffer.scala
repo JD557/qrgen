@@ -1,6 +1,7 @@
 package eu.joaocosta.qrgen
 
 import scala.collection.*
+
 import eu.joaocosta.qrgen.internal.*
 
 /** Packed sequence of bits */

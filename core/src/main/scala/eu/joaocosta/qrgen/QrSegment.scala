@@ -2,6 +2,7 @@ package eu.joaocosta.qrgen
 
 import java.nio.charset.StandardCharsets
 import java.util.regex.Pattern
+
 import scala.annotation.tailrec
 
 /** A segment of character/binary/control data in a QR Code symbol. */

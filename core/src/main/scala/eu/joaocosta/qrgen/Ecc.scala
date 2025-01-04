@@ -1,6 +1,7 @@
 package eu.joaocosta.qrgen
 
 import java.util.Arrays
+
 import eu.joaocosta.qrgen.internal.*
 
 /** The error correction level in a QR Code symbol.

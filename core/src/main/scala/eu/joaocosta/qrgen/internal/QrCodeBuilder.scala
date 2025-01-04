@@ -1,8 +1,8 @@
 package eu.joaocosta.qrgen.internal
 
-import eu.joaocosta.qrgen.Ecc
-import eu.joaocosta.qrgen.QrCode
 import java.util.Arrays
+
+import eu.joaocosta.qrgen.{Ecc, QrCode}
 
 /** Helper class to build QR Codes.
   * This is only meant for internal use. Library users should use the helpers defined in [[eu.joaocosta.qrgen.QrCode]] instead.

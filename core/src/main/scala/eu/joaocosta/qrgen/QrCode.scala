@@ -1,9 +1,11 @@
 package eu.joaocosta.qrgen
 
 import java.util.Arrays
-import eu.joaocosta.qrgen.internal.*
-import scala.collection.immutable.ArraySeq
+
 import scala.annotation.tailrec
+import scala.collection.immutable.ArraySeq
+
+import eu.joaocosta.qrgen.internal.*
 
 /** A QR Code symbol, which is a type of two-dimension barcode.
   * Invented by Denso Wave and described in the ISO/IEC 18004 standard.
@@ -30,7 +32,8 @@ import scala.annotation.tailrec
   * @param dataCodewords the bytes representing segments to encode (without ECC)
   * @param mask the mask pattern to use, which is either -1 for automatic choice or from 0 to 7 for fixed choice
   */
-final case class QrCode(version: Int, errorCorrectionLevel: Ecc, dataCodewords: ArraySeq[Byte], mask: Option[Int]) extends IndexedSeq[IndexedSeq[Boolean]] {
+final case class QrCode(version: Int, errorCorrectionLevel: Ecc, dataCodewords: ArraySeq[Byte], mask: Option[Int])
+    extends IndexedSeq[IndexedSeq[Boolean]] {
   // Check arguments and initialize fields
   require(version >= QrCode.MIN_VERSION && version <= QrCode.MAX_VERSION, "Version value out of range")
   require(mask.forall(x => x >= 0 && x <= 7), "Mask value out of range")

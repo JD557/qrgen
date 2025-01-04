@@ -1,5 +1,7 @@
+import ReleaseTransformations._
+
 ThisBuild / organization := "eu.joaocosta"
-ThisBuild / publishTo    := None //sonatypePublishToBundle.value
+ThisBuild / publishTo    := sonatypePublishToBundle.value
 ThisBuild / scalaVersion := "3.3.4"
 ThisBuild / licenses     := Seq("MIT License" -> url("http://opensource.org/licenses/MIT"))
 ThisBuild / homepage     := Some(url("https://github.com/JD557/qegen"))
@@ -10,6 +12,7 @@ ThisBuild / scmInfo := Some(
   )
 )
 ThisBuild / versionScheme   := Some("semver-spec")
+
 ThisBuild / autoAPIMappings := true
 ThisBuild / scalacOptions ++= Seq(
   "-deprecation",
@@ -17,6 +20,11 @@ ThisBuild / scalacOptions ++= Seq(
   "-language:higherKinds",
   "-unchecked"
 )
+
+ThisBuild / scalafmtOnCompile := true
+ThisBuild / semanticdbEnabled := true
+ThisBuild / semanticdbVersion := scalafixSemanticdb.revision
+ThisBuild / scalafixOnCompile := true
 
 // Don't publish the root project
 publish / skip  := true
@@ -31,6 +39,9 @@ lazy val core =
     .in(file("core"))
     .settings(
       name := "qrgen",
+      publishMavenStyle      := true,
+      Test / publishArtifact := false,
+      pomIncludeRepository   := { _ => false }
     )
 
 lazy val baselineTests =
@@ -52,3 +63,22 @@ lazy val baselineTests =
       publishArtifact := false,
       publishTo       := None
     )
+
+releaseCrossBuild    := true
+releaseTagComment    := s"Release ${(ThisBuild / version).value}"
+releaseCommitMessage := s"Set version to ${(ThisBuild / version).value}"
+
+releaseProcess := Seq[ReleaseStep](
+  checkSnapshotDependencies,
+  inquireVersions,
+  runClean,
+  runTest,
+  setReleaseVersion,
+  commitReleaseVersion,
+  tagRelease,
+  releaseStepCommandAndRemaining("publishSigned"),
+  releaseStepCommand("sonatypeBundleRelease"),
+  setNextVersion,
+  commitNextVersion,
+  pushChanges
+)

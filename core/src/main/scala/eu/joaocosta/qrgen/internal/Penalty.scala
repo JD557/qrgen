@@ -2,8 +2,7 @@ package eu.joaocosta.qrgen.internal
 
 import scala.annotation.tailrec
 
-/**
-  * Helpers to compute the penalty score in order to pick the best mask.
+/** Helpers to compute the penalty score in order to pick the best mask.
   */
 object Penalty {
   private val PENALTY_N1: Int = 3
@@ -43,7 +42,7 @@ object Penalty {
   // Pushes the given value to the front and drops the last value. A helper function for getPenaltyScore().
   private def finderPenaltyAddHistory(size: Int, currentRunLength: Int, runHistory: Vector[Int]): Vector[Int] = {
     val addLightBorder = runHistory.head == 0 // Add light border to initial run
-    val newHead = 
+    val newHead =
       if (addLightBorder) currentRunLength + size
       else currentRunLength
     newHead +: runHistory.dropRight(1)
@@ -91,8 +90,7 @@ object Penalty {
     }
   }
 
-  /**
-    * Calculates and returns the penalty score based on state of a QR Code's modules.
+  /** Calculates and returns the penalty score based on state of a QR Code's modules.
     * This is used by the automatic mask choice algorithm to find the mask pattern that yields the lowest score.
     *
     * @param builder immutable view over the QR code that's being built
