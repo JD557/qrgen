@@ -41,7 +41,7 @@ final case class QrCode(version: Int, errorCorrectionLevel: Ecc, dataCodewords: 
 
     // Compute ECC, draw modules, do masking
     builder.drawFunctionPatterns(version, errorCorrectionLevel)
-    builder.drawCodewords(version, Ecc.addEccAndInterleave(version, errorCorrectionLevel, dataCodewords.toArray))
+    builder.drawCodewords(version, errorCorrectionLevel.addEccAndInterleave(version, dataCodewords.toArray))
 
     // Do masking
     val _bestMask = mask match {
@@ -202,7 +202,7 @@ object QrCode {
     var dataUsedBits = 0
     var suitable     = false
     while (!suitable) {
-      val dataCapacityBits = Ecc.getNumDataCodewords(version, ecl) * 8 // Number of data bits available
+      val dataCapacityBits = ecl.getNumDataCodewords(version) * 8 // Number of data bits available
       dataUsedBits = QrSegment.getTotalBits(segs, version)
       if (dataUsedBits != -1 && dataUsedBits <= dataCapacityBits)
         suitable = true                 // This version number is found to be suitable
@@ -216,7 +216,7 @@ object QrCode {
 
     // Increase the error correction level while the data still fits in the current version number
     val boostedEcl = Ecc.values.foldLeft(ecl) { (oldEcl, newEcl) => // From low to high
-      if (boostEcl && dataUsedBits <= Ecc.getNumDataCodewords(version, newEcl) * 8) newEcl
+      if (boostEcl && dataUsedBits <= newEcl.getNumDataCodewords(version) * 8) newEcl
       else oldEcl
     }
 
@@ -230,7 +230,7 @@ object QrCode {
     assert(bb.size == dataUsedBits)
 
     // Add terminator and pad up to a byte if applicable
-    val dataCapacityBits = Ecc.getNumDataCodewords(version, boostedEcl) * 8
+    val dataCapacityBits = boostedEcl.getNumDataCodewords(version) * 8
     assert(bb.size <= dataCapacityBits)
     bb.appendBits(0, Math.min(4, dataCapacityBits - bb.size))
     bb.appendBits(0, (8 - bb.size % 8) % 8)
